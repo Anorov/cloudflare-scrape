@@ -3,4 +3,4 @@ cloudflare-scrape
 
 A simple Python function to bypass Cloudflare's anti-bot page. They change their method periodically, so I will update this repo frequently.
 
-Requires only the Python `requests` library.
+Requires the Python `requests` library and `lxml` library.
