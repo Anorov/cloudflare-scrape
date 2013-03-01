@@ -10,7 +10,7 @@ Note: This only works when regular Cloudflare anti-bots is enabled (the "please 
 
 Usage
 ====
-    import cfscrape
+    from cfscrape import grab_cloudflare
 
     url = "http://somesite.com"
     print grab_cloudflare(url)
