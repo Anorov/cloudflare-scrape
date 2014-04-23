@@ -4,7 +4,7 @@ import lxml.html
 
         
 def grab_cloudflare(url, *args, **kwargs):
-    sess = requests.Session()
+    sess = requests.session()
     sess.headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:17.0) Gecko/20100101 Firefox/17.0"}
     safe_eval = lambda s: eval(s, {"__builtins__": {}}) if "#" not in s and "__" not in s else ""
     page = sess.get(url, *args, **kwargs).content
