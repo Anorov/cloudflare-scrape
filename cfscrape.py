@@ -10,9 +10,8 @@ def grab_cloudflare(url, *args, **kwargs):
     page = sess.get(url, *args, **kwargs).content
 
     if "a = document.getElementById('jschl-answer');" in page:
-        logger.info("Encountered CloudFlare anti-bot wall")
         # Cloudflare anti-bots is on
-        html = lxml.html.fromstring(page.content)
+        html = lxml.html.fromstring(page)
         challenge = html.find(".//input[@name='jschl_vc']").attrib["value"]
         script = html.findall(".//script")[-1].text_content()
         domain_parts = url.split("/")
@@ -21,6 +20,6 @@ def grab_cloudflare(url, *args, **kwargs):
         answer = str(safe_eval(math) + len(domain))
         data = {"jschl_vc": challenge, "jschl_answer": answer}
         get_url = domain_parts[0] + '//' + domain + "/cdn-cgi/l/chk_jschl"
-        return sess.get(get_url, params=data, headers={'referer': url}, *args, **kwargs).content
+        return sess.get(get_url, params=data, headers={"Referer": url}, *args, **kwargs).content
     else:
         return page
