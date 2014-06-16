@@ -1,25 +1,37 @@
 import re
+import time
 import requests
-import lxml.html
+import PyV8
 
-        
 def grab_cloudflare(url, *args, **kwargs):
     sess = requests.session()
-    sess.headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:17.0) Gecko/20100101 Firefox/17.0"}
-    safe_eval = lambda s: eval(s, {"__builtins__": {}}) if "#" not in s and "__" not in s else ""
-    page = sess.get(url, *args, **kwargs).content
+    sess.headers["User-Agent"] = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:17.0) Gecko/20100101 Firefox/17.0"
+    resp = sess.get(url, *args, **kwargs)
+    page = resp.content
 
-    if "a = document.getElementById('jschl-answer');" in page:
-        # Cloudflare anti-bots is on
-        html = lxml.html.fromstring(page)
-        challenge = html.find(".//input[@name='jschl_vc']").attrib["value"]
-        script = html.findall(".//script")[-1].text_content()
-        domain_parts = url.split("/")
-        domain = domain_parts[2]
-        math = re.search(r"a\.value = (\d.+?);", script).group(1)
-        answer = str(safe_eval(math) + len(domain))
-        data = {"jschl_vc": challenge, "jschl_answer": answer}
-        get_url = domain_parts[0] + '//' + domain + "/cdn-cgi/l/chk_jschl"
-        return sess.get(get_url, params=data, headers={"Referer": url}, *args, **kwargs).content
-    else:
+    if "a = document.getElementById('jschl-answer');" not in page:
+        # Return page as it is; no Cloudflare protection detected
         return page
+
+    # Otherwise, Cloudflare anti-bots is on
+
+    if resp.history:
+        # If there are redirects, use the URL of the last redirect
+        url = resp.history[-1].headers["Location"]
+
+    domain = url.split("/")[2]
+
+    challenge = re.search(r'name="jschl_vc" value="(\w+)"', page).group(1)
+
+    builder = re.search(r"setTimeout.+?\r?\n([\s\S]+?a\.value =.+?)\r?\n", page).group(1)
+    builder = re.sub(r"a\.value =(.+?) \+ .+?;", r"\1", builder)
+    builder = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", builder)
+
+    ctxt = PyV8.JSContext()
+    ctxt.enter()
+    # Safely evaluate Javascript expression
+    answer = str(int(ctxt.eval(builder)) + len(domain))
+
+    params = {"jschl_vc": challenge, "jschl_answer": answer}
+    submit_url = url + "/cdn-cgi/l/chk_jschl"
+    return sess.get(submit_url, params=params, headers={"Referer": url}, *args, **kwargs).content
