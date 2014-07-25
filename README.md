@@ -11,6 +11,7 @@ Note: This only works when regular Cloudflare anti-bots is enabled (the "please 
 
 Dependencies
 ============
+* Python 2.6 - 2.7
 * **[requests](https://github.com/kennethreitz/requests)** >= 2.0
 * **[PyV8](https://code.google.com/p/pyv8/)**
 

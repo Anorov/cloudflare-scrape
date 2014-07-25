@@ -22,7 +22,6 @@ def grab_cloudflare(url, *args, **kwargs):
     builder = re.sub(r"a\.value =(.+?) \+ .+?;", r"\1", builder)
     builder = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", builder)
 
-
     with PyV8.JSContext() as ctxt:
         # Safely evaluate Javascript expression
         answer = str(int(ctxt.eval(builder)) + len(domain))
