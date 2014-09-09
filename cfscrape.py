@@ -27,5 +27,5 @@ def grab_cloudflare(url, *args, **kwargs):
         answer = str(int(ctxt.eval(builder)) + len(domain))
 
     params = {"jschl_vc": challenge, "jschl_answer": answer}
-    submit_url = url + "/cdn-cgi/l/chk_jschl"
+    submit_url = "http://%s/cdn-cgi/l/chk_jschl" % domain
     return sess.get(submit_url, params=params, headers={"Referer": url}, *args, **kwargs).content
