@@ -29,28 +29,33 @@ Usage
 ====
 The simplest way to use cfscrape is by calling `create_scraper()`.
 
-    import cfscrape
+```python
+import cfscrape
 
-    scraper = cfscrape.create_scraper() # returns a requests.Session object
-    print scraper.get("http://somesite.com").text # => "<!DOCTYPE html><html><head>..."
+scraper = cfscrape.create_scraper() # returns a requests.Session object
+print scraper.get("http://somesite.com").text # => "<!DOCTYPE html><html><head>..."
+```
 
 You use cloudflare-scrape exactly the same way you use Requests. Consult [Requests' documentation](http://docs.python-requests.org/en/latest/user/quickstart/) for more information.
 
 This module is implemented as an adapter, so you can also mount it to an existing requests.Session object if you wish.
 
-    import requests
-    import cfscrape
+```python
+import requests
+import cfscrape
 
-    sess = requests.session()
-    sess.headers = {"X-Some-Custom-Header": "Some Value"}
-    sess.mount("http://", cfscrape.CloudflareAdapter())
+sess = requests.session()
+sess.headers = {"X-Some-Custom-Header": "Some Value"}
+sess.mount("http://", cfscrape.CloudflareAdapter())
+```
 
 Note that `create_scraper()` is merely a convenience function that creates a new Requests session and mounts the adapter to it. It will also do the mounting for you if you pass it an existing session.
 
-    import requests
-    import cfscrape
+```python
+import requests
+import cfscrape
 
-    sess = requests.session()
-    sess.headers = {"X-Some-Custom-Header": "Some Value"}
-    sess = cfscrape.create_scraper(sess) # this just runs sess.mount(...)
-
+sess = requests.session()
+sess.headers = {"X-Some-Custom-Header": "Some Value"}
+sess = cfscrape.create_scraper(sess) # this just runs sess.mount(...)
+```
