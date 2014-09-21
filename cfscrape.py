@@ -34,6 +34,7 @@ class CloudflareAdapter(HTTPAdapter):
         parsed = urlparse(url)
         domain = parsed.netloc
         page = resp.content
+        kwargs.pop("params", None) # Don't pass on params
 
         try:
             # Extract the arithmetic operation
