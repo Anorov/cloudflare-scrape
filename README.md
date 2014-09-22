@@ -42,7 +42,7 @@ That's it. Any requests made from this session object to websites protected by C
 
 You use cloudflare-scrape exactly the same way you use Requests. Just instead of calling `requests.get()` or `requests.post()`, you call `scraper.get()` or `scraper.post()`. Consult [Requests' documentation](http://docs.python-requests.org/en/latest/user/quickstart/) for more information.
 
-## Existing requests sessions
+### Existing requests sessions
 
 This module is implemented as an adapter, so you can also mount it to an existing requests.Session object if you wish.
 
