@@ -19,6 +19,7 @@ For reference, this is the default message Cloudflare uses for these sorts of pa
 
 Dependencies
 ============
+
 * Python 2.6 - 2.7
 * **[Requests](https://github.com/kennethreitz/requests)** >= 2.0
 * **[PyV8](https://code.google.com/p/pyv8/)**
@@ -26,7 +27,8 @@ Dependencies
 There are a few different ways to install PyV8, depending on your OS and if you want to compile it from source or use a pre-compiled binary. Use whatever works best for you.
 
 Usage
-====
+=====
+
 The simplest way to use cfscrape is by calling `create_scraper()`.
 
 ```python
@@ -36,7 +38,11 @@ scraper = cfscrape.create_scraper() # returns a requests.Session object
 print scraper.get("http://somesite.com").text # => "<!DOCTYPE html><html><head>..."
 ```
 
-You use cloudflare-scrape exactly the same way you use Requests. Consult [Requests' documentation](http://docs.python-requests.org/en/latest/user/quickstart/) for more information.
+That's it. Any requests made from this session object to websites protected by Cloudflare anti-bot will be handled automatically. Websites not using Cloudflare will be treated normally. You don't need to configure or call anything further, and you can effectively treat all websites as if they're not protected with anything.
+
+You use cloudflare-scrape exactly the same way you use Requests. Just instead of calling `requests.get()` or `requests.post()`, you call `scraper.get()` or `scraper.post()`. Consult [Requests' documentation](http://docs.python-requests.org/en/latest/user/quickstart/) for more information.
+
+## Existing requests sessions
 
 This module is implemented as an adapter, so you can also mount it to an existing requests.Session object if you wish.
 
