@@ -5,7 +5,7 @@ A simple Python module to bypass Cloudflare's anti-bot page, implemented as a [R
 
 This can be useful if you wish to scrape or crawl a website protected with Cloudflare. Cloudflare's anti-bot page currently just checks if the client supports Javascript, though they may add additional techniques in the future.
 
-Due to Cloudflare continuously changing and hardening their protection page, `cloudflare-scrape` now uses **PyV8**, a wrapper around Google's V8 Javascript engine.
+Due to Cloudflare continuously changing and hardening their protection page, cloudflare-scrape now uses **[PyV8](https://code.google.com/p/pyv8/)**, a Python wrapper around Google's V8 Javascript engine.
 
 Note: This only works when regular Cloudflare anti-bots is enabled (the "Checking your browser before accessing..." loading page). If there is a reCAPTCHA challenge, you're out of luck. Thankfully, the Javascript check page is much more common.
 
@@ -15,7 +15,7 @@ For reference, this is the default message Cloudflare uses for these sorts of pa
 
     This process is automatic. Your browser will redirect to your requested content shortly.
 
-    Please allow up to 5 seconds…
+    Please allow up to 5 seconds...
 
 Dependencies
 ============
@@ -26,10 +26,15 @@ Dependencies
 
 There are a few different ways to install PyV8, depending on your OS and if you want to compile it from source or use a pre-compiled binary. Use whatever works best for you.
 
+Updates
+=======
+
+Cloudflare modifies their anti-bot protection page occasionally. So far it has changed maybe once per year on average. If you notice that the anti-bot page has changed, or if this module suddenly stops working, please create a GitHub issue so that I can update the code accordingly.
+
 Usage
 =====
 
-The simplest way to use cfscrape is by calling `create_scraper()`.
+The simplest way to use cloudflare-scrape is by calling `create_scraper()`.
 
 ```python
 import cfscrape
@@ -44,7 +49,7 @@ You use cloudflare-scrape exactly the same way you use Requests. Just instead of
 
 ### Existing requests sessions
 
-This module is implemented as an adapter, so you can also mount it to an existing requests.Session object if you wish.
+This module is implemented as an adapter, so you can also mount it to an existing `requests.Session` object if you wish.
 
 ```python
 import requests
