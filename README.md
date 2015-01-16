@@ -40,7 +40,7 @@ The simplest way to use cloudflare-scrape is by calling `create_scraper()`.
 import cfscrape
 
 scraper = cfscrape.create_scraper() # returns a requests.Session object
-print scraper.get("http://somesite.com").text # => "<!DOCTYPE html><html><head>..."
+print scraper.get("http://somesite.com").content # => "<!DOCTYPE html><html><head>..."
 ```
 
 That's it. Any requests made from this session object to websites protected by Cloudflare anti-bot will be handled automatically. Websites not using Cloudflare will be treated normally. You don't need to configure or call anything further, and you can effectively treat all websites as if they're not protected with anything.
