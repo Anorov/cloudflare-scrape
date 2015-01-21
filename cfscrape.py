@@ -35,11 +35,10 @@ class CloudflareAdapter(HTTPAdapter):
         domain = parsed.netloc
         page = resp.content
         kwargs.pop("params", None) # Don't pass on params
-
         try:
             # Extract the arithmetic operation
             challenge = re.search(r'name="jschl_vc" value="(\w+)"', page).group(1)
-            builder = re.search(r"setTimeout.+?\r?\n([\s\S]+?a\.value =.+?)\r?\n", page).group(1)
+            builder = re.search(r"setTimeout\(function\(\){\s+(var t,r,a,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n", page).group(1)
             builder = re.sub(r"a\.value =(.+?) \+ .+?;", r"\1", builder)
             builder = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", builder)
 
