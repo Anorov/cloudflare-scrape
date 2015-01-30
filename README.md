@@ -5,7 +5,7 @@ A simple Python module to bypass Cloudflare's anti-bot page, implemented as a [R
 
 This can be useful if you wish to scrape or crawl a website protected with Cloudflare. Cloudflare's anti-bot page currently just checks if the client supports Javascript, though they may add additional techniques in the future.
 
-Due to Cloudflare continuously changing and hardening their protection page, cloudflare-scrape now uses **[PyV8](https://code.google.com/p/pyv8/)**, a Python wrapper around Google's V8 Javascript engine.
+Due to Cloudflare continuously changing and hardening their protection page, cloudflare-scrape now uses **[SpiderMonkey](https://github.com/davisp/python-spidermonkey)**, a Python wrapper around Mozilla's SpiderMonkey Javascript engine.
 
 Note: This only works when regular Cloudflare anti-bots is enabled (the "Checking your browser before accessing..." loading page). If there is a reCAPTCHA challenge, you're out of luck. Thankfully, the Javascript check page is much more common.
 
@@ -22,9 +22,9 @@ Dependencies
 
 * Python 2.6 - 2.7
 * **[Requests](https://github.com/kennethreitz/requests)** >= 2.0
-* **[PyV8](https://code.google.com/p/pyv8/)**
+* **[SpiderMonkey](https://github.com/davisp/python-spidermonkey)**
 
-There are a few different ways to install PyV8, depending on your OS and if you want to compile it from source or use a pre-compiled binary. Use whatever works best for you.
+The installation-instructions for SpiderMonkey can be found in the git-repository.
 
 Updates
 =======
