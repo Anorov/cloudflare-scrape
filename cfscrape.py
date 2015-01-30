@@ -1,11 +1,12 @@
 import re
-import PyV8
+import spidermonkey
 from urlparse import urlparse
 import requests
 from requests.adapters import HTTPAdapter
 
 DEFAULT_USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
                       "Ubuntu Chromium/34.0.1847.116 Chrome/34.0.1847.116 Safari/537.36")
+
 
 class CloudflareAdapter(HTTPAdapter):
     def send(self, request, **kwargs):
@@ -34,7 +35,7 @@ class CloudflareAdapter(HTTPAdapter):
         parsed = urlparse(url)
         domain = parsed.netloc
         page = resp.content
-        kwargs.pop("params", None) # Don't pass on params
+        kwargs.pop("params", None)  # Don't pass on params
         try:
             # Extract the arithmetic operation
             challenge = re.search(r'name="jschl_vc" value="(\w+)"', page).group(1)
@@ -50,10 +51,10 @@ class CloudflareAdapter(HTTPAdapter):
                           "submit a bug report if you are running the latest version.")
 
         # Lock must be added explicitly, because PyV8 bypasses the GIL
-        with PyV8.JSLocker():
-            with PyV8.JSContext() as ctxt:
-                # Safely evaluate the Javascript expression
-                answer = str(int(ctxt.eval(builder)) + len(domain))
+        rt = spidermonkey.Runtime()
+        ctxt = rt.new_context()
+        # Safely evaluate the Javascript expression
+        answer = str(int(ctxt.eval(builder)) + len(domain))
 
         params = {"jschl_vc": challenge, "jschl_answer": answer}
         submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed.scheme, domain)
