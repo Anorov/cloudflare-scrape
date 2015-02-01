@@ -1,8 +1,12 @@
 import re
-import PyV8
-from urlparse import urlparse
 import requests
 from requests.adapters import HTTPAdapter
+import execjs
+
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
 DEFAULT_USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
                       "Ubuntu Chromium/34.0.1847.116 Chrome/34.0.1847.116 Safari/537.36")
@@ -17,7 +21,7 @@ class CloudflareAdapter(HTTPAdapter):
             return resp
 
         # Check if Cloudflare anti-bot is on
-        if "a = document.getElementById('jschl-answer');" in resp.content:
+        if "a = document.getElementById('jschl-answer');" in resp.text:
             return self.solve_cf_challenge(resp, request.headers, **kwargs)
 
         # Otherwise, no Cloudflare anti-bot detected
@@ -33,7 +37,7 @@ class CloudflareAdapter(HTTPAdapter):
         url = resp.url
         parsed = urlparse(url)
         domain = parsed.netloc
-        page = resp.content
+        page = resp.text
         kwargs.pop("params", None) # Don't pass on params
         try:
             # Extract the arithmetic operation
@@ -41,6 +45,7 @@ class CloudflareAdapter(HTTPAdapter):
             builder = re.search(r"setTimeout\(function\(\){\s+(var t,r,a,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n", page).group(1)
             builder = re.sub(r"a\.value =(.+?) \+ .+?;", r"\1", builder)
             builder = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", builder)
+            builder = builder.replace("parseInt", "return parseInt")
 
         except AttributeError:
             # Something is wrong with the page. This may indicate Cloudflare has changed their
@@ -49,11 +54,8 @@ class CloudflareAdapter(HTTPAdapter):
             raise IOError("Unable to parse Cloudflare anti-bots page. Try upgrading cfscrape, or "
                           "submit a bug report if you are running the latest version.")
 
-        # Lock must be added explicitly, because PyV8 bypasses the GIL
-        with PyV8.JSLocker():
-            with PyV8.JSContext() as ctxt:
-                # Safely evaluate the Javascript expression
-                answer = str(int(ctxt.eval(builder)) + len(domain))
+        # Safely evaluate the Javascript expression
+        answer = str(int(execjs.exec_(builder)) + len(domain))
 
         params = {"jschl_vc": challenge, "jschl_answer": answer}
         submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed.scheme, domain)

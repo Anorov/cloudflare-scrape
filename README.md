@@ -20,11 +20,14 @@ For reference, this is the default message Cloudflare uses for these sorts of pa
 Dependencies
 ============
 
-* Python 2.6 - 2.7
+* Python 2.6 - 3.x
 * **[Requests](https://github.com/kennethreitz/requests)** >= 2.0
-* **[PyV8](https://code.google.com/p/pyv8/)**
+* **[PyExecJS](https://pypi.python.org/pypi/PyExecJS)**
+* Any Javascript runtime listed in [PyExecJS's documentation](https://github.com/doloopwhile/PyExecJS/blob/master/README.md). PyV8, Spidermonkey, and Node.js are 3 popular options.
 
-There are a few different ways to install PyV8, depending on your OS and if you want to compile it from source or use a pre-compiled binary. Use whatever works best for you.
+`python setup.py install` will install these dependencies. Alternatively, `pip install requests` and `pip install PyExecJS` will also suffice.
+
+You will also need a Javascript runtime if you don't have one. `apt-get install nodejs` on Debian/Ubuntu will work.
 
 Updates
 =======
