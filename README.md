@@ -1,11 +1,11 @@
 cloudflare-scrape
 =================
 
-A simple Python module to bypass Cloudflare's anti-bot page, implemented as a [Requests](https://github.com/kennethreitz/requests) adapter. Cloudflare changes their techniques periodically, so I will update this repo frequently.
+A simple Python module to bypass Cloudflare's anti-bot page (also known as "I'm Under Attack Mode", or IUAM), implemented as a [Requests](https://github.com/kennethreitz/requests) adapter. Cloudflare changes their techniques periodically, so I will update this repo frequently.
 
 This can be useful if you wish to scrape or crawl a website protected with Cloudflare. Cloudflare's anti-bot page currently just checks if the client supports Javascript, though they may add additional techniques in the future.
 
-Due to Cloudflare continuously changing and hardening their protection page, cloudflare-scrape now uses **[PyV8](https://code.google.com/p/pyv8/)**, a Python wrapper around Google's V8 Javascript engine.
+Due to Cloudflare continually changing and hardening their protection page, cloudflare-scrape now uses **[PyExecJS](https://github.com/doloopwhile/PyExecJS)**, a Python wrapper around multiple Javascript runtime engines like V8 and Spidermonkey. This allows the script to easily and effectively impersonate a regular web browser without explicitly parsing and converting Cloudflare's Javascript obfuscation techniques.
 
 Note: This only works when regular Cloudflare anti-bots is enabled (the "Checking your browser before accessing..." loading page). If there is a reCAPTCHA challenge, you're out of luck. Thankfully, the Javascript check page is much more common.
 
@@ -17,22 +17,37 @@ For reference, this is the default message Cloudflare uses for these sorts of pa
 
     Please allow up to 5 seconds...
 
+Installation
+============
+
+Clone this repository and run `python setup.py install`.
+
+You will also need a Javascript runtime. See below for more information.
+
 Dependencies
 ============
 
 * Python 2.6 - 3.x
 * **[Requests](https://github.com/kennethreitz/requests)** >= 2.0
 * **[PyExecJS](https://pypi.python.org/pypi/PyExecJS)**
-* Any Javascript runtime listed in [PyExecJS's documentation](https://github.com/doloopwhile/PyExecJS/blob/master/README.md). PyV8, Spidermonkey, and Node.js are 3 popular options.
+* Any Javascript runtime listed in [PyExecJS's documentation](https://github.com/doloopwhile/PyExecJS/blob/master/README.md). Node.js, Spidermonkey, and PyV8 are 3 popular options. I recommend Node.js. You can install it with `apt-get install nodejs` on Debian and Ubuntu.
 
-`python setup.py install` will install these dependencies. Alternatively, `pip install requests` and `pip install PyExecJS` will also suffice.
-
-You will also need a Javascript runtime if you don't have one. `apt-get install nodejs` on Debian/Ubuntu will work.
+`python setup.py install` will install all of these dependencies except for the Javascript runtime, which must be installed manually if you don't already have one.
 
 Updates
 =======
 
-Cloudflare modifies their anti-bot protection page occasionally. So far it has changed maybe once per year on average. If you notice that the anti-bot page has changed, or if this module suddenly stops working, please create a GitHub issue so that I can update the code accordingly.
+Cloudflare modifies their anti-bot protection page occasionally. So far it has changed maybe once per year on average.
+
+If you notice that the anti-bot page has changed, or if this module suddenly stops working, please create a GitHub issue so that I can update the code accordingly.
+
+In your issue, please include:
+
+* The full exception and stack trace.
+* The URL of the Cloudflare-protected page which the script does not work on.
+* A Pastebin or Gist containing the HTML source of the protected page.
+
+[This issue comment is a good example.](https://github.com/Anorov/cloudflare-scrape/issues/3#issuecomment-45827514)
 
 Usage
 =====
@@ -50,9 +65,22 @@ That's it. Any requests made from this session object to websites protected by C
 
 You use cloudflare-scrape exactly the same way you use Requests. Just instead of calling `requests.get()` or `requests.post()`, you call `scraper.get()` or `scraper.post()`. Consult [Requests' documentation](http://docs.python-requests.org/en/latest/user/quickstart/) for more information.
 
-### Existing requests sessions
+### Integration
 
-This module is implemented as an adapter, so you can also mount it to an existing `requests.Session` object if you wish.
+It's easy to integrate cloudflare-scrape with other applications and tools. Cloudflare uses 2 cookies as tokens: one to verify you made it past their challenge page and one to track your session. Simply send along both of these cookies with any HTTP request and you will bypass the challenge page. Both cookieswill eventually expire, so be sure to have code to handle that case and to re-acquire the cookies.
+
+To retrieve just the cookies, use `cfscrape.get_tokens()`. (Note this function is a top-level function in the module, and is not a method of the scraper. So use `cfscrape.get_tokens()`, do not use `scraper.get_tokens()`.)
+
+```python
+import cfscrape
+
+print cfscrape.get_tokens("http://somesite.com")
+# => {'cf_clearance': 'c8f913c707b818b47aa328d81cab57c349b1eee5-1426733163-3600', '__cfduid': 'dd8ec03dfdbcb8c2ea63e920f1335c1001426733158'}
+```
+
+### Existing Requests sessions
+
+This module is implemented as a Requests adapter, so you can also mount it to an existing `requests.Session` object if you wish.
 
 ```python
 import requests

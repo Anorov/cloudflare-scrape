@@ -1,3 +1,4 @@
+import time
 import re
 import requests
 from requests.adapters import HTTPAdapter
@@ -22,7 +23,7 @@ class CloudflareAdapter(HTTPAdapter):
 
         # Check if Cloudflare anti-bot is on
         if "a = document.getElementById('jschl-answer');" in resp.text:
-            return self.solve_cf_challenge(resp, request.headers, **kwargs)
+            return self.solve_cf_challenge(resp, request.headers, resp.cookies, **kwargs)
 
         # Otherwise, no Cloudflare anti-bot detected
         return resp
@@ -32,7 +33,9 @@ class CloudflareAdapter(HTTPAdapter):
         if "requests" in request.headers["User-Agent"]:
             request.headers["User-Agent"] = DEFAULT_USER_AGENT
 
-    def solve_cf_challenge(self, resp, headers, **kwargs):
+    def solve_cf_challenge(self, resp, headers, cookies, **kwargs):
+        time.sleep(5) # Cloudflare requires a delay before solving the challenge
+
         headers = headers.copy()
         url = resp.url
         parsed = urlparse(url)
@@ -40,28 +43,34 @@ class CloudflareAdapter(HTTPAdapter):
         page = resp.text
         kwargs.pop("params", None) # Don't pass on params
         try:
-            # Extract the arithmetic operation
             challenge = re.search(r'name="jschl_vc" value="(\w+)"', page).group(1)
+            challenge_pass = re.search(r'name="pass" value="(.+?)"', page).group(1)
+
+            # Extract the arithmetic operation
             builder = re.search(r"setTimeout\(function\(\){\s+(var t,r,a,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n", page).group(1)
             builder = re.sub(r"a\.value =(.+?) \+ .+?;", r"\1", builder)
             builder = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", builder)
             builder = builder.replace("parseInt", "return parseInt")
 
-        except AttributeError:
+        except Exception as e:
             # Something is wrong with the page. This may indicate Cloudflare has changed their
             # anti-bot technique. If you see this and are running the latest version,
             # please open a GitHub issue so I can update the code accordingly.
-            raise IOError("Unable to parse Cloudflare anti-bots page. Try upgrading cfscrape, or "
-                          "submit a bug report if you are running the latest version.")
+            print ("Unable to parse Cloudflare anti-bots page. Try upgrading cloudflare-scrape, or submit "
+                   "a bug report if you are running the latest version. Please read "
+                   "https://github.com/Anorov/cloudflare-scrape#updates before submitting a bug report.\n")
+            raise
 
         # Safely evaluate the Javascript expression
         answer = str(int(execjs.exec_(builder)) + len(domain))
 
-        params = {"jschl_vc": challenge, "jschl_answer": answer}
+        params = {"jschl_vc": challenge, "jschl_answer": answer, "pass": challenge_pass}
         submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed.scheme, domain)
         headers["Referer"] = url
 
-        return requests.get(submit_url, params=params, headers=headers, **kwargs)
+        resp = requests.get(submit_url, params=params, headers=headers, cookies=cookies, **kwargs)
+        resp.cookies.set("__cfduid", cookies.get("__cfduid"))
+        return resp
 
 
 def create_scraper(session=None):
@@ -74,3 +83,16 @@ def create_scraper(session=None):
     sess.mount("http://", adapter)
     sess.mount("https://", adapter)
     return sess
+
+def get_tokens(url):
+    scraper = create_scraper()
+    resp = scraper.get(url)
+    if not resp.ok:
+        raise ValueError("'%s' returned error %d, could not collect tokens." % (url, resp.status_code))
+
+    cookies = {
+                  "__cfduid": resp.cookies.get("__cfduid", ""),
+                  "cf_clearance": scraper.cookies.get("cf_clearance", "")
+              }
+
+    return cookies
