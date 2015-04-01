@@ -17,10 +17,16 @@ For reference, this is the default message Cloudflare uses for these sorts of pa
 
     Please allow up to 5 seconds...
 
+**Warning** - This script will execute arbitrary Javascript code, which can potentially be harmful in some runtime environments. Precautions have been taken to try and execute the code in a sandboxed manner (for example, when Node.js's runtime is in use, the `vm` module is leveraged, which will prevent most attacks), but I cannot 100% guarantee safety when scraping a page that has been maliciously crafted to specifically exploit cloudflare-scrape. Attacks could range from a simple denial of service (a `while(true){}` keeping your script stuck forever) all the way to arbitrary code execution on the machine (this is unlikely).
+
+Use with caution. I recommend using the Node.js, PyV8, or regular V8 runtimes for security reasons. I have not assessed the others, like Spidermonkey, very thoroughly. I would also recommend using a VM, if possible.
+
 Installation
 ============
 
-Clone this repository and run `python setup.py install`.
+Simply run `pip install cfscrape`.
+
+Alternatively, clone this repository and run `python setup.py install`.
 
 You will also need a Javascript runtime. See below for more information.
 
@@ -67,15 +73,48 @@ You use cloudflare-scrape exactly the same way you use Requests. Just instead of
 
 ### Integration
 
-It's easy to integrate cloudflare-scrape with other applications and tools. Cloudflare uses 2 cookies as tokens: one to verify you made it past their challenge page and one to track your session. Simply send along both of these cookies with any HTTP request and you will bypass the challenge page. Both cookieswill eventually expire, so be sure to have code to handle that case and to re-acquire the cookies.
+It's easy to integrate cloudflare-scrape with other applications and tools. Cloudflare uses 2 cookies as tokens: one to verify you made it past their challenge page and one to track your session. Simply send along both of these cookies with any HTTP request and you will bypass the challenge page. Both cookies will eventually expire, so be sure to have code to handle that case and to re-acquire the cookies.
 
 To retrieve just the cookies, use `cfscrape.get_tokens()`. (Note this function is a top-level function in the module, and is not a method of the scraper. So use `cfscrape.get_tokens()`, do not use `scraper.get_tokens()`.)
 
 ```python
 import cfscrape
 
-print cfscrape.get_tokens("http://somesite.com")
+tokens = cfscrape.get_tokens("http://somesite.com")
+print tokens
 # => {'cf_clearance': 'c8f913c707b818b47aa328d81cab57c349b1eee5-1426733163-3600', '__cfduid': 'dd8ec03dfdbcb8c2ea63e920f1335c1001426733158'}
+```
+
+There is also a convenience function for returning the tokens as a string for use as a Cookie HTTP header value: `get_cookie_string()`.
+
+If you were crafting an HTTP request manually, you could do something like:
+
+```python
+import cfscrape
+request = "GET / HTTP/1.1\r\n"
+
+cookie_value = cfscrape.get_cookie_string("http://somesite.com")
+request += "Cookie: %s\r\n" % cookie_value
+
+print request
+# GET / HTTP/1.1\r\n
+# Cookie: cf_clearance=c8f913c707b818b47aa328d81cab57c349b1eee5-1426733163-3600; __cfduid=dd8ec03dfdbcb8c2ea63e920f1335c1001426733158
+```
+
+Here is an example of integrating cloudflare-scrape with curl. As you can see, all you have to do is pass the cookies to curl.
+
+```python
+import subprocess
+import cfscrape
+
+# Manually
+# tokens = cfscrape.get_tokens("http://somesite.com")
+# cookie_arg = "cf_clearance=%s; __cfduid=%s" % (tokens["cf_clearance"], tokens["__cfduid"])
+
+# With convenience function
+cookie_arg = cfscrape.get_cookie_string("http://somesite.com")
+
+result = subprocess.check_output(["curl", "--cookie", cookie_arg, "http://somesite.com"])
 ```
 
 ### Existing Requests sessions
@@ -87,8 +126,9 @@ import requests
 import cfscrape
 
 sess = requests.session()
-sess.headers = {"X-Some-Custom-Header": "Some Value"}
+sess.headers = {"X-Some-Custom-Header": "Some Value"} # You could also have done `scraper.headers = ...` if using create_scraper()
 sess.mount("http://", cfscrape.CloudflareAdapter())
+sess.mount("https://", cfscrape.CloudflareAdapter())
 ```
 
 Note that `create_scraper()` is merely a convenience function that creates a new Requests session and mounts the adapter to it. It will also do the mounting for you if you pass it an existing session.

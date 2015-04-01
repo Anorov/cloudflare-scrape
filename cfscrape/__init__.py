@@ -33,6 +33,12 @@ class CloudflareAdapter(HTTPAdapter):
         if "requests" in request.headers["User-Agent"]:
             request.headers["User-Agent"] = DEFAULT_USER_AGENT
 
+    def format_js(self, js):
+        js = js.replace("\n", "")
+        if "Node" in execjs.get().name:
+            return "return require('vm').runInNewContext('%s');" % js
+        return js.replace("parseInt", "return parseInt")
+
     def solve_cf_challenge(self, resp, headers, cookies, **kwargs):
         time.sleep(5) # Cloudflare requires a delay before solving the challenge
 
@@ -50,7 +56,7 @@ class CloudflareAdapter(HTTPAdapter):
             builder = re.search(r"setTimeout\(function\(\){\s+(var t,r,a,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n", page).group(1)
             builder = re.sub(r"a\.value =(.+?) \+ .+?;", r"\1", builder)
             builder = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", builder)
-            builder = builder.replace("parseInt", "return parseInt")
+            #builder = builder.replace("parseInt", "return parseInt")
 
         except Exception as e:
             # Something is wrong with the page. This may indicate Cloudflare has changed their
@@ -62,7 +68,8 @@ class CloudflareAdapter(HTTPAdapter):
             raise
 
         # Safely evaluate the Javascript expression
-        answer = str(int(execjs.exec_(builder)) + len(domain))
+        js = self.format_js(builder)
+        answer = str(int(execjs.exec_(js)) + len(domain))
 
         params = {"jschl_vc": challenge, "jschl_answer": answer, "pass": challenge_pass}
         submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed.scheme, domain)
@@ -90,9 +97,11 @@ def get_tokens(url):
     if not resp.ok:
         raise ValueError("'%s' returned error %d, could not collect tokens." % (url, resp.status_code))
 
-    cookies = {
-                  "__cfduid": resp.cookies.get("__cfduid", ""),
-                  "cf_clearance": scraper.cookies.get("cf_clearance", "")
-              }
+    return { 
+             "__cfduid": resp.cookies.get("__cfduid", ""),
+             "cf_clearance": scraper.cookies.get("cf_clearance", "")
+           }
 
-    return cookies
+def get_cookie_string(url):
+    tokens = get_tokens(url)
+    return "; ".join("=".join(pair) for pair in tokens.items())
