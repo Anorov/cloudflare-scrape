@@ -56,7 +56,6 @@ class CloudflareAdapter(HTTPAdapter):
             builder = re.search(r"setTimeout\(function\(\){\s+(var t,r,a,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n", page).group(1)
             builder = re.sub(r"a\.value =(.+?) \+ .+?;", r"\1", builder)
             builder = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", builder)
-            #builder = builder.replace("parseInt", "return parseInt")
 
         except Exception as e:
             # Something is wrong with the page. This may indicate Cloudflare has changed their

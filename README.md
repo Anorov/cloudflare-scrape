@@ -17,6 +17,8 @@ For reference, this is the default message Cloudflare uses for these sorts of pa
 
     Please allow up to 5 seconds...
 
+Any script using cloudflare-scrape will sleep for 5 seconds for the first visit to any site with Cloudflare anti-bots enabled, though no delay will occur after the first request.
+
 **Warning** - This script will execute arbitrary Javascript code, which can potentially be harmful in some runtime environments. Precautions have been taken to try and execute the code in a sandboxed manner (for example, when Node.js's runtime is in use, the `vm` module is leveraged, which will prevent most attacks), but I cannot 100% guarantee safety when scraping a page that has been maliciously crafted to specifically exploit cloudflare-scrape. Attacks could range from a simple denial of service (a `while(true){}` keeping your script stuck forever) all the way to arbitrary code execution on the machine (this is unlikely).
 
 Use with caution. I recommend using the Node.js, PyV8, or regular V8 runtimes for security reasons. I have not assessed the others, like Spidermonkey, very thoroughly. I would also recommend using a VM, if possible.
