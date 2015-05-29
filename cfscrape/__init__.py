@@ -41,7 +41,7 @@ class CloudflareAdapter(HTTPAdapter):
             request.headers["User-Agent"] = DEFAULT_USER_AGENT
 
     def format_js(self, js):
-        js = js.replace("\n", "").replace("'", "")
+        js = re.sub(r"[\n\\']", "", js)
         if "Node" in JS_ENGINE:
             return "return require('vm').runInNewContext('%s');" % js
         return js.replace("parseInt", "return parseInt")

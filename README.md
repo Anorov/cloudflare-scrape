@@ -33,7 +33,7 @@ Despite these safeguards, you should use this module with caution. I would also 
 Installation
 ============
 
-Simply run `pip install cfscrape`.
+Simply run `pip install cfscrape`. The PyPI package is at https://pypi.python.org/pypi/cfscrape/
 
 Alternatively, clone this repository and run `python setup.py install`.
 
