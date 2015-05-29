@@ -5,7 +5,9 @@ A simple Python module to bypass Cloudflare's anti-bot page (also known as "I'm 
 
 This can be useful if you wish to scrape or crawl a website protected with Cloudflare. Cloudflare's anti-bot page currently just checks if the client supports Javascript, though they may add additional techniques in the future.
 
-Due to Cloudflare continually changing and hardening their protection page, cloudflare-scrape now uses **[PyExecJS](https://github.com/doloopwhile/PyExecJS)**, a Python wrapper around multiple Javascript runtime engines like V8 and Spidermonkey. This allows the script to easily and effectively impersonate a regular web browser without explicitly parsing and converting Cloudflare's Javascript obfuscation techniques.
+Due to Cloudflare continually changing and hardening their protection page, cloudflare-scrape now uses **[PyExecJS](https://github.com/doloopwhile/PyExecJS)**, a Python wrapper around multiple Javascript runtime engines. This allows the script to easily and effectively impersonate a regular web browser without explicitly parsing and converting Cloudflare's Javascript obfuscation techniques.
+
+The only supported Javascript engines at this time are Node.js and V8 (with or without the PyV8 module). This is due to potential security concerns with the other engines.
 
 Note: This only works when regular Cloudflare anti-bots is enabled (the "Checking your browser before accessing..." loading page). If there is a reCAPTCHA challenge, you're out of luck. Thankfully, the Javascript check page is much more common.
 
@@ -19,9 +21,14 @@ For reference, this is the default message Cloudflare uses for these sorts of pa
 
 Any script using cloudflare-scrape will sleep for 5 seconds for the first visit to any site with Cloudflare anti-bots enabled, though no delay will occur after the first request.
 
-**Warning** - This script will execute arbitrary Javascript code, which can potentially be harmful in some runtime environments. Precautions have been taken to try and execute the code in a sandboxed manner (for example, when Node.js's runtime is in use, the `vm` module is leveraged, which will prevent most attacks), but I cannot 100% guarantee safety when scraping a page that has been maliciously crafted to specifically exploit cloudflare-scrape. Attacks could range from a simple denial of service (a `while(true){}` keeping your script stuck forever) all the way to arbitrary code execution on the machine (this is unlikely).
+Warning
+======
 
-Use with caution. I recommend using the Node.js, PyV8, or regular V8 runtimes for security reasons. I have not assessed the others, like Spidermonkey, very thoroughly. I would also recommend using a VM, if possible.
+This script will execute arbitrary Javascript code, which can potentially be harmful in some runtime environments. Precautions have been taken to try and execute the code in a sandboxed manner (for example, when Node.js's runtime is in use, the `vm` module is leveraged, which will prevent most attacks), but I cannot 100% guarantee safety when scraping a page that has been maliciously crafted to specifically exploit cloudflare-scrape. Attacks could range from a simple denial of service (a `while(true){}` keeping your script stuck forever) all the way to arbitrary code execution on the machine (though measures are taken in an attempt to prevent this).
+
+As I have not fully assessed the capabilities of alternative runtimes, like Spidermonkey and Phantom.js, to execute arbitrary code, only Node and V8 can be used at this time. I may add support for other engines if I can confirm there are no security risks.
+
+Despite these safeguards, you should use this module with caution. I would also recommend using a VM to perform your scraping, if possible.
 
 Installation
 ============
@@ -38,9 +45,9 @@ Dependencies
 * Python 2.6 - 3.x
 * **[Requests](https://github.com/kennethreitz/requests)** >= 2.0
 * **[PyExecJS](https://pypi.python.org/pypi/PyExecJS)**
-* Any Javascript runtime listed in [PyExecJS's documentation](https://github.com/doloopwhile/PyExecJS/blob/master/README.md). Node.js, Spidermonkey, and PyV8 are 3 popular options. I recommend Node.js. You can install it with `apt-get install nodejs` on Debian and Ubuntu.
+* Node.js or V8. PyV8 is optional. I recommend Node.js. You can install it with `apt-get install nodejs` on Ubuntu, [or by reading Node.js's installation instructions](https://github.com/joyent/node/wiki/Installing-Node.js-via-package-manager#debian-and-ubuntu-based-linux-distributions) otherwise.
 
-`python setup.py install` will install all of these dependencies except for the Javascript runtime, which must be installed manually if you don't already have one.
+`python setup.py install` will install all of these dependencies except for the Javascript runtime, which must be installed manually if you don't already have a supported one.
 
 Updates
 =======
