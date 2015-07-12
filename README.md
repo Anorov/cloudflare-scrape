@@ -86,10 +86,14 @@ It's easy to integrate cloudflare-scrape with other applications and tools. Clou
 
 To retrieve just the cookies, use `cfscrape.get_tokens()`. (Note this function is a top-level function in the module, and is not a method of the scraper. So use `cfscrape.get_tokens()`, do not use `scraper.get_tokens()`.)
 
+These functions return a tuple of `(cookie_dict, user_agent_string)`. **You must use the same user-agent for obtaining the tokens and for making requests with those tokens, otherwise Cloudflare will flag you as a bot.** That means you have to pass the returned `user_agent_string` to whatever script or service you are passing the tokens to, and it must use that passed user-agent when it makes HTTP requests.
+
+You may optionally specify a custom user-agent with `cfscrape.get_tokens("User-Agent Here")`. A user-agent spoofing Firefox on Linux will be used by default.
+
 ```python
 import cfscrape
 
-tokens = cfscrape.get_tokens("http://somesite.com")
+tokens, user_agent = cfscrape.get_tokens("http://somesite.com")
 print tokens
 # => {'cf_clearance': 'c8f913c707b818b47aa328d81cab57c349b1eee5-1426733163-3600', '__cfduid': 'dd8ec03dfdbcb8c2ea63e920f1335c1001426733158'}
 ```
@@ -102,8 +106,8 @@ If you were crafting an HTTP request manually, you could do something like:
 import cfscrape
 request = "GET / HTTP/1.1\r\n"
 
-cookie_value = cfscrape.get_cookie_string("http://somesite.com")
-request += "Cookie: %s\r\n" % cookie_value
+cookie_value, user_agent = cfscrape.get_cookie_string("http://somesite.com")
+request += "Cookie: %s\r\nUser-Agent: %s\r\n" % (cookie_value, user_agent)
 
 print request
 # GET / HTTP/1.1\r\n
@@ -117,13 +121,13 @@ import subprocess
 import cfscrape
 
 # Manually
-# tokens = cfscrape.get_tokens("http://somesite.com")
+# tokens, user_agent = cfscrape.get_tokens("http://somesite.com")
 # cookie_arg = "cf_clearance=%s; __cfduid=%s" % (tokens["cf_clearance"], tokens["__cfduid"])
 
 # With convenience function
-cookie_arg = cfscrape.get_cookie_string("http://somesite.com")
+cookie_arg, user_agent = cfscrape.get_cookie_string("http://somesite.com")
 
-result = subprocess.check_output(["curl", "--cookie", cookie_arg, "http://somesite.com"])
+result = subprocess.check_output(["curl", "--cookie", cookie_arg, "-A", user_agent, "http://somesite.com"])
 ```
 
 ### Existing Requests sessions

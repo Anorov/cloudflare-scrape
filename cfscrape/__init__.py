@@ -9,9 +9,7 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
-DEFAULT_USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Ubuntu Chromium/34.0.1847.116 Chrome/34.0.1847.116 Safari/537.36")
-
+DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0"
 JS_ENGINE = execjs.get().name
 
 if not ("Node" in JS_ENGINE or "V8" in JS_ENGINE):
@@ -97,17 +95,25 @@ def create_scraper(session=None):
     sess.mount("https://", adapter)
     return sess
 
-def get_tokens(url):
+def get_tokens(url, user_agent=None):
     scraper = create_scraper()
-    resp = scraper.get(url)
-    if not resp.ok:
-        raise ValueError("'%s' returned error %d, could not collect tokens." % (url, resp.status_code))
+    user_agent = user_agent or DEFAULT_USER_AGENT
+    scraper.headers["User-Agent"] = user_agent
+    
+    try:
+        resp = scraper.get(url)
+        resp.raise_for_status()
+    except Exception:
+        print "'%s' returned error %d, could not collect tokens.\n" % (url, resp.status_code)
+        raise
 
-    return { 
-             "__cfduid": resp.cookies.get("__cfduid", ""),
-             "cf_clearance": scraper.cookies.get("cf_clearance", "")
-           }
+    return ( { 
+                 "__cfduid": resp.cookies.get("__cfduid", ""),
+                 "cf_clearance": scraper.cookies.get("cf_clearance", "")
+             },
+             user_agent
+           )
 
-def get_cookie_string(url):
-    tokens = get_tokens(url)
-    return "; ".join("=".join(pair) for pair in tokens.items())
+def get_cookie_string(url, user_agent=None):
+    tokens, user_agent = get_tokens(url, user_agent=user_agent)
+    return "; ".join("=".join(pair) for pair in tokens.items()), user_agent
