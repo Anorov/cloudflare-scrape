@@ -110,8 +110,10 @@ cookie_value, user_agent = cfscrape.get_cookie_string("http://somesite.com")
 request += "Cookie: %s\r\nUser-Agent: %s\r\n" % (cookie_value, user_agent)
 
 print request
+
 # GET / HTTP/1.1\r\n
 # Cookie: cf_clearance=c8f913c707b818b47aa328d81cab57c349b1eee5-1426733163-3600; __cfduid=dd8ec03dfdbcb8c2ea63e920f1335c1001426733158
+# User-Agent: Some/User-Agent String
 ```
 
 Here is an example of integrating cloudflare-scrape with curl. As you can see, all you have to do is pass the cookies to curl.
