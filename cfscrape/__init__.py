@@ -117,3 +117,7 @@ def get_tokens(url, user_agent=None):
 def get_cookie_string(url, user_agent=None):
     tokens, user_agent = get_tokens(url, user_agent=user_agent)
     return "; ".join("=".join(pair) for pair in tokens.items()), user_agent
+
+def disable_ssl(session):
+    sesssion.verify=False
+    
