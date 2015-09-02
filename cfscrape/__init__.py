@@ -28,6 +28,7 @@ class CloudflareAdapter(HTTPAdapter):
         # Check if Cloudflare anti-bot is on
         if ( "URL=/cdn-cgi/" in resp.headers.get("Refresh", "") and
              resp.headers.get("Server", "") == "cloudflare-nginx" ):
+            resp.cookies.update(request._cookies)
             return self.solve_cf_challenge(resp, request.headers, resp.cookies, **kwargs)
 
         # Otherwise, no Cloudflare anti-bot detected
@@ -80,7 +81,7 @@ class CloudflareAdapter(HTTPAdapter):
         headers["Referer"] = url
 
         resp = requests.get(submit_url, params=params, headers=headers, cookies=cookies, **kwargs)
-        resp.cookies.set("__cfduid", cookies.get("__cfduid"))
+        resp.cookies.update(cookies)
         return resp
 
 
