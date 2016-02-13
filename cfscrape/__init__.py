@@ -10,14 +10,36 @@ except ImportError:
     from urllib.parse import urlparse
 
 DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0"
-JS_ENGINE = execjs.get().name
 
-if not ("Node" in JS_ENGINE or "V8" in JS_ENGINE):
-    raise EnvironmentError("Your Javascript runtime '%s' is not supported due to security concerns. "
-                           "Please use Node.js, V8, or PyV8." % JS_ENGINE)
+class JSEngineNames(object):
+    node = 'Node'
+    v8 = 'V8'
+    pyv8 = 'PyV8'
 
 class CloudflareAdapter(HTTPAdapter):
+    _supported_js_engine_names = [
+            JSEngineNames.node, JSEngineNames.v8, JSEngineNames.pyv8]
+    _js_engine = None
+    # this exists to support per-engine quirks without depending on the 'name' field in
+    # the engine object, which may change
+    _js_engine_name = ''
+
+    def _choose_js_engine(self):
+        for name in self._supported_js_engine_names:
+            try:
+                engine = execjs.get(name)
+                return name, engine
+            except execjs.RuntimeUnavailable:
+                pass
+
+        available_engines = sorted(execjs.available_runtimes().keys())
+        # no options left
+        raise EnvironmentError("cloudflare-scrape supports these JS engines: \n{supported}, and PyExecJS only detected these: {available}. Please install a supported engine.".format(supported=self._supported_js_engine_names, available=available_engines))
+
     def send(self, request, **kwargs):
+        if self._js_engine is None:
+            self._js_engine_name, self._js_engine = self._choose_js_engine()
+
         domain = request.url.split("/")[2]
         resp = super(CloudflareAdapter, self).send(request, **kwargs)
 
@@ -40,7 +62,7 @@ class CloudflareAdapter(HTTPAdapter):
 
     def format_js(self, js):
         js = re.sub(r"[\n\\']", "", js)
-        if "Node" in JS_ENGINE:
+        if self._js_engine_name == JSEngineNames.node:
             return "return require('vm').runInNewContext('%s');" % js
         return js.replace("parseInt", "return parseInt")
 
@@ -62,7 +84,7 @@ class CloudflareAdapter(HTTPAdapter):
             builder = re.sub(r"a\.value =(.+?) \+ .+?;", r"\1", builder)
             builder = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", builder)
 
-        except Exception as e:
+        except Exception:
             # Something is wrong with the page. This may indicate Cloudflare has changed their
             # anti-bot technique. If you see this and are running the latest version,
             # please open a GitHub issue so I can update the code accordingly.
@@ -73,7 +95,7 @@ class CloudflareAdapter(HTTPAdapter):
 
         # Safely evaluate the Javascript expression
         js = self.format_js(builder)
-        answer = str(int(execjs.exec_(js)) + len(domain))
+        answer = str(int(self._js_engine.exec_(js)) + len(domain))
 
         params = {"jschl_vc": challenge, "jschl_answer": answer, "pass": challenge_pass}
         submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed.scheme, domain)
@@ -99,7 +121,7 @@ def get_tokens(url, user_agent=None):
     scraper = create_scraper()
     user_agent = user_agent or DEFAULT_USER_AGENT
     scraper.headers["User-Agent"] = user_agent
-    
+
     try:
         resp = scraper.get(url)
         resp.raise_for_status()
@@ -107,7 +129,7 @@ def get_tokens(url, user_agent=None):
         print("'%s' returned error %d, could not collect tokens.\n" % (url, resp.status_code))
         raise
 
-    return ( { 
+    return ( {
                  "__cfduid": resp.cookies.get("__cfduid", ""),
                  "cf_clearance": scraper.cookies.get("cf_clearance", "")
              },
