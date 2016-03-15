@@ -12,9 +12,12 @@ except ImportError:
 DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0"
 
 class JSEngineNames(object):
+    nashorn = 'Nashorn'
     node = 'Node'
-    v8 = 'V8'
+    phantomjs = 'PhantomJS'
     pyv8 = 'PyV8'
+    slimerjs = 'SlimerJS'
+    v8 = 'V8'
 
 class CloudflareAdapter(HTTPAdapter):
     _supported_js_engine_names = [
