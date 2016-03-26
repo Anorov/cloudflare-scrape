@@ -1,7 +1,7 @@
 cloudflare-scrape
 =================
 
-A simple Python module to bypass Cloudflare's anti-bot page (also known as "I'm Under Attack Mode", or IUAM), implemented as a [Requests](https://github.com/kennethreitz/requests) adapter. Cloudflare changes their techniques periodically, so I will update this repo frequently.
+A simple Python module to bypass Cloudflare's anti-bot page (also known as "I'm Under Attack Mode", or IUAM), implemented with [Requests](https://github.com/kennethreitz/requests). Cloudflare changes their techniques periodically, so I will update this repo frequently.
 
 This can be useful if you wish to scrape or crawl a website protected with Cloudflare. Cloudflare's anti-bot page currently just checks if the client supports Javascript, though they may add additional techniques in the future.
 
@@ -24,11 +24,11 @@ Any script using cloudflare-scrape will sleep for 5 seconds for the first visit 
 Warning
 ======
 
-This script will execute arbitrary Javascript code, which can potentially be harmful in some runtime environments. Precautions have been taken to try and execute the code in a sandboxed manner (for example, when Node.js's runtime is in use, the `vm` module is leveraged, which will prevent most attacks), but I cannot 100% guarantee safety when scraping a page that has been maliciously crafted to specifically exploit cloudflare-scrape. Attacks could range from a simple denial of service (a `while(true){}` keeping your script stuck forever) all the way to arbitrary code execution on the machine (though measures are taken in an attempt to prevent this).
+This script will execute arbitrary Javascript code, which can potentially be harmful in some runtime environments. Due to this, the only Javascript engines permitted are V8, PyV8, and Node.js. With Node, all code will be executed in a sandbox, making Node's standard library inaccessible.
 
-As I have not fully assessed the capabilities of alternative runtimes, like Spidermonkey and Phantom.js, to execute arbitrary code, only Node and V8 can be used at this time. I may add support for other engines if I can confirm there are no security risks.
+Barring a critical flaw in V8 or Node, the primary risk is that someone could craft a page which causes the Javascript interpreter to loop endlessly, or potentially consume a lot of memory if a garbage collector issue is identified in V8 or Node.
 
-Despite these safeguards, you should use this module with caution. I would also recommend using a VM to perform your scraping, if possible.
+Shell execution should be impossible if you use V8, PyV8, or Node.
 
 Installation
 ============
@@ -72,13 +72,14 @@ The simplest way to use cloudflare-scrape is by calling `create_scraper()`.
 ```python
 import cfscrape
 
-scraper = cfscrape.create_scraper() # returns a requests.Session object
+scraper = cfscrape.CloudflareScraper() # CloudflareScraper inherits from requests.Session
+# or: scraper = cfscrape.create_scraper()
 print scraper.get("http://somesite.com").content # => "<!DOCTYPE html><html><head>..."
 ```
 
 That's it. Any requests made from this session object to websites protected by Cloudflare anti-bot will be handled automatically. Websites not using Cloudflare will be treated normally. You don't need to configure or call anything further, and you can effectively treat all websites as if they're not protected with anything.
 
-You use cloudflare-scrape exactly the same way you use Requests. Just instead of calling `requests.get()` or `requests.post()`, you call `scraper.get()` or `scraper.post()`. Consult [Requests' documentation](http://docs.python-requests.org/en/latest/user/quickstart/) for more information.
+You use cloudflare-scrape exactly the same way you use Requests. (`CloudflareScraper` works identically to a requests `Session` object.) Just instead of calling `requests.get()` or `requests.post()`, you call `scraper.get()` or `scraper.post()`. Consult [Requests' documentation](http://docs.python-requests.org/en/latest/user/quickstart/) for more information.
 
 ### Integration
 
@@ -134,29 +135,4 @@ import cfscrape
 cookie_arg, user_agent = cfscrape.get_cookie_string("http://somesite.com")
 
 result = subprocess.check_output(["curl", "--cookie", cookie_arg, "-A", user_agent, "http://somesite.com"])
-```
-
-### Existing Requests sessions
-
-This module is implemented as a Requests adapter, so you can also mount it to an existing `requests.Session` object if you wish.
-
-```python
-import requests
-import cfscrape
-
-sess = requests.session()
-sess.headers = {"X-Some-Custom-Header": "Some Value"} # You could also have done `scraper.headers = ...` if using create_scraper()
-sess.mount("http://", cfscrape.CloudflareAdapter())
-sess.mount("https://", cfscrape.CloudflareAdapter())
-```
-
-Note that `create_scraper()` is merely a convenience function that creates a new Requests session and mounts the adapter to it. It will also do the mounting for you if you pass it an existing session.
-
-```python
-import requests
-import cfscrape
-
-sess = requests.session()
-sess.headers = {"X-Some-Custom-Header": "Some Value"}
-sess = cfscrape.create_scraper(sess) # this just runs sess.mount(...)
 ```
