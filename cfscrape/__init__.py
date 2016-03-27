@@ -14,7 +14,7 @@ DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/201
 
 class CloudflareScraper(Session):
     def __init__(self, *args, **kwargs):
-        self.js_engine = kwargs.pop("js_engine")
+        self.js_engine = kwargs.pop("js_engine", None)
         super(CloudflareScraper, self).__init__(*args, **kwargs)
 
         if "requests" in self.headers["User-Agent"]:
