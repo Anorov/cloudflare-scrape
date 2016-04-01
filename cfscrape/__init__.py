@@ -19,7 +19,7 @@ def _find_no_duplicates(cj, name, domain=None, path=None):
             if domain is None or cookie.domain == domain:
                 if path is None or cookie.path == path:
                     if result is not None:  # if there are multiple cookies that meet passed in criteria
-                        raise KeyError('There are multiple cookies with name, %r' % (name))
+                        raise KeyError("There are multiple cookies with name %r" % name)
                     result = cookie.value  # we will eventually return this as long as no cookie conflict
 
     return result
@@ -77,7 +77,7 @@ class CloudflareScraper(Session):
             print("[!] Unable to parse Cloudflare anti-bots page. "
                   "Try upgrading cloudflare-scrape, or submit a bug report "
                   "if you are running the latest version. Please read "
-                  "https://github.com/Anorov/cloudflare-scrape#updates"
+                  "https://github.com/Anorov/cloudflare-scrape#updates "
                   "before submitting a bug report.\n")
             raise
 
