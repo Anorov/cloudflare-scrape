@@ -12,6 +12,19 @@ except ImportError:
 DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0"
 
 
+def _find_no_duplicates(cj, name, domain=None, path=None):
+    result = None
+    for cookie in cj:
+        if cookie.name == name:
+            if domain is None or cookie.domain == domain:
+                if path is None or cookie.path == path:
+                    if result is not None:  # if there are multiple cookies that meet passed in criteria
+                        raise KeyError('There are multiple cookies with name, %r' % (name))
+                    result = cookie.value  # we will eventually return this as long as no cookie conflict
+
+    return result
+
+
 class CloudflareScraper(Session):
     def __init__(self, *args, **kwargs):
         self.js_engine = kwargs.pop("js_engine", None)
@@ -26,7 +39,7 @@ class CloudflareScraper(Session):
         domain = url.split("/")[2]
 
         # Check if we already solved a challenge
-        if self.cookies.get("cf_clearance", domain="." + domain):
+        if _find_no_duplicates(self.cookies, "cf_clearance", domain="." + domain):
             return resp
 
         # Check if Cloudflare anti-bot is on
