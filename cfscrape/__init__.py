@@ -133,7 +133,8 @@ def create_scraper(sess=None, js_engine=None):
 
 def get_tokens(url, user_agent=None, js_engine=None):
     scraper = create_scraper(js_engine=js_engine)
-    user_agent = user_agent or scraper.headers["User-Agent"]
+    if user_agent:
+        scraper.headers["User-Agent"] = user_agent
 
     try:
         resp = scraper.get(url)
@@ -148,7 +149,7 @@ def get_tokens(url, user_agent=None, js_engine=None):
                 "__cfduid": scraper.cookies.get("__cfduid", "", domain="." + domain),
                 "cf_clearance": scraper.cookies.get("cf_clearance", "", domain="." + domain)
             },
-            user_agent
+            scraper.headers["User-Agent"]
            )
 
 def get_cookie_string(url, user_agent=None, js_engine=None):
