@@ -113,7 +113,7 @@ To retrieve just the cookies, use `cfscrape.get_tokens()`. (Note this function i
 
 These functions return a tuple of `(cookie_dict, user_agent_string)`. **You must use the same user-agent string for obtaining the tokens and for making requests with those tokens, otherwise Cloudflare will flag you as a bot.** That means you have to pass the returned `user_agent_string` to whatever script or service you are passing the tokens to, and it must use that passed user-agent when it makes HTTP requests.
 
-You may optionally specify a custom user-agent with `cfscrape.get_tokens("User-Agent Here")`. A user-agent spoofing Firefox on Linux will be used by default.
+You may optionally specify a custom user-agent with `cfscrape.get_tokens("http://somesite.com/", user_agent="User-Agent Here")`. A user-agent spoofing Firefox on Linux will be used by default.
 
 --------------------------------------------------------------------------------
 
