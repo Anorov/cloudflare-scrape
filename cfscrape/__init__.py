@@ -114,7 +114,7 @@ def create_scraper(sess=None, js_engine=None):
 
     if not ("Node" in js_engine or "V8" in js_engine):
         raise EnvironmentError("Your Javascript runtime '%s' is not supported due to security concerns. "
-                               "Please use Node.js, V8, or PyV8. To use a specific engine, "
+                               "Please use Node.js or PyV8. To force a specific engine, "
                                "such as Node, call create_scraper(js_engine=\"Node\")" % js_engine)
 
     scraper = CloudflareScraper(js_engine=js_engine)
