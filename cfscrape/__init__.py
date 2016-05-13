@@ -161,3 +161,7 @@ class CloudflareScraper(Session):
         """
         tokens, user_agent = cls.get_tokens(url, user_agent=user_agent, js_engine=None)
         return "; ".join("=".join(pair) for pair in tokens.items()), user_agent
+
+create_scraper = CloudflareScraper.create_scraper
+get_tokens = CloudflareScraper.get_tokens
+get_cookie_string = CloudflareScraper.get_cookie_string
