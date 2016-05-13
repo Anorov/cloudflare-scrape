@@ -103,58 +103,61 @@ class CloudflareScraper(Session):
 
         return js.replace("parseInt", "return parseInt")
 
-def create_scraper(sess=None, js_engine=None):
-    """
-    Convenience function for creating a ready-to-go requests.Session (subclass) object.
-    """
-    if js_engine:
-        os.environ["EXECJS_RUNTIME"] = js_engine
+    @classmethod
+    def create_scraper(cls, sess=None, js_engine=None):
+        """
+        Convenience function for creating a ready-to-go requests.Session (subclass) object.
+        """
+        if js_engine:
+            os.environ["EXECJS_RUNTIME"] = js_engine
 
-    js_engine = execjs.get().name
+        js_engine = execjs.get().name
 
-    if not ("Node" in js_engine or "V8" in js_engine):
-        raise EnvironmentError("Your Javascript runtime '%s' is not supported due to security concerns. "
-                               "Please use Node.js or PyV8. To force a specific engine, "
-                               "such as Node, call create_scraper(js_engine=\"Node\")" % js_engine)
+        if not ("Node" in js_engine or "V8" in js_engine):
+            raise EnvironmentError("Your Javascript runtime '%s' is not supported due to security concerns. "
+                                   "Please use Node.js or PyV8. To force a specific engine, "
+                                   "such as Node, call create_scraper(js_engine=\"Node\")" % js_engine)
 
-    scraper = CloudflareScraper(js_engine=js_engine)
+        scraper = cls(js_engine=js_engine)
 
-    if sess:
-        attrs = ["auth", "cert", "cookies", "headers", "hooks", "params", "proxies", "data"]
-        for attr in attrs:
-            val = getattr(sess, attr, None)
-            if val:
-                setattr(scraper, attr, val)
+        if sess:
+            attrs = ["auth", "cert", "cookies", "headers", "hooks", "params", "proxies", "data"]
+            for attr in attrs:
+                val = getattr(sess, attr, None)
+                if val:
+                    setattr(scraper, attr, val)
 
-    return scraper
+        return scraper
 
 
-## Functions for integrating cloudflare-scrape with other applications and scripts
+    ## Functions for integrating cloudflare-scrape with other applications and scripts
 
-def get_tokens(url, user_agent=None, js_engine=None):
-    scraper = create_scraper(js_engine=js_engine)
-    if user_agent:
-        scraper.headers["User-Agent"] = user_agent
+    @classmethod
+    def get_tokens(cls, url, user_agent=None, js_engine=None):
+        scraper = cls.create_scraper(js_engine=js_engine)
+        if user_agent:
+            scraper.headers["User-Agent"] = user_agent
 
-    try:
-        resp = scraper.get(url)
-        resp.raise_for_status()
-    except Exception as e:
-        print("'%s' returned an error. Could not collect tokens.\n" % url)
-        raise
+        try:
+            resp = scraper.get(url)
+            resp.raise_for_status()
+        except Exception as e:
+            print("'%s' returned an error. Could not collect tokens.\n" % url)
+            raise
 
-    domain = urlparse(resp.url).netloc
+        domain = urlparse(resp.url).netloc
 
-    return ({
-                "__cfduid": scraper.cookies.get("__cfduid", "", domain="." + domain),
-                "cf_clearance": scraper.cookies.get("cf_clearance", "", domain="." + domain)
-            },
-            scraper.headers["User-Agent"]
-           )
+        return ({
+                    "__cfduid": scraper.cookies.get("__cfduid", "", domain="." + domain),
+                    "cf_clearance": scraper.cookies.get("cf_clearance", "", domain="." + domain)
+                },
+                scraper.headers["User-Agent"]
+               )
 
-def get_cookie_string(url, user_agent=None, js_engine=None):
-    """
-    Convenience function for building a Cookie HTTP header value.
-    """
-    tokens, user_agent = get_tokens(url, user_agent=user_agent, js_engine=None)
-    return "; ".join("=".join(pair) for pair in tokens.items()), user_agent
+    @classmethod
+    def get_cookie_string(cls, url, user_agent=None, js_engine=None):
+        """
+        Convenience function for building a Cookie HTTP header value.
+        """
+        tokens, user_agent = cls.get_tokens(url, user_agent=user_agent, js_engine=None)
+        return "; ".join("=".join(pair) for pair in tokens.items()), user_agent
