@@ -12,19 +12,6 @@ except ImportError:
 DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0"
 
 
-def _find_no_duplicates(cj, name, domain=None, path=None):
-    result = None
-    for cookie in cj:
-        if cookie.name == name:
-            if domain is None or cookie.domain == domain:
-                if path is None or cookie.path == path:
-                    if result is not None:  # if there are multiple cookies that meet passed in criteria
-                        raise KeyError("There are multiple cookies with name %r" % name)
-                    result = cookie.value  # we will eventually return this as long as no cookie conflict
-
-    return result
-
-
 class CloudflareScraper(Session):
     def __init__(self, *args, **kwargs):
         self.js_engine = kwargs.pop("js_engine", None)
@@ -36,11 +23,6 @@ class CloudflareScraper(Session):
 
     def request(self, method, url, *args, **kwargs):
         resp = super(CloudflareScraper, self).request(method, url, *args, **kwargs)
-        domain = url.split("/")[2]
-
-        # Check if we already solved a challenge
-        if _find_no_duplicates(self.cookies, "cf_clearance", domain="." + domain):
-            return resp
 
         # Check if Cloudflare anti-bot is on
         if ( "URL=/cdn-cgi/" in resp.headers.get("Refresh", "") and
@@ -146,10 +128,18 @@ class CloudflareScraper(Session):
             raise
 
         domain = urlparse(resp.url).netloc
+        cookie_domain = None
+
+        for d in scraper.cookies.list_domains():
+            if d.startswith(".") and d in ("." + domain):
+                cookie_domain = d
+                break
+        else:
+            raise ValueError("Unable to find cookies")
 
         return ({
-                    "__cfduid": scraper.cookies.get("__cfduid", "", domain="." + domain),
-                    "cf_clearance": scraper.cookies.get("cf_clearance", "", domain="." + domain)
+                    "__cfduid": scraper.cookies.get("__cfduid", "", domain=cookie_domain),
+                    "cf_clearance": scraper.cookies.get("cf_clearance", "", domain=cookie_domain)
                 },
                 scraper.headers["User-Agent"]
                )
