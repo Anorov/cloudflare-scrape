@@ -107,13 +107,15 @@ Unfortunately, not all of requests' session attributes are easily transferable, 
 
 ## Integration
 
-It's easy to integrate cloudflare-scrape with other applications and tools. Cloudflare uses 2 cookies as tokens: one to verify you made it past their challenge page and one to track your session. Simply send along both of these cookies, and the user-agent string you used to acquire these cookies, with any HTTP request and you will bypass the challenge page. Both cookies will eventually expire, so be sure to have code to handle that case and to re-acquire the cookies.
+It's easy to integrate cloudflare-scrape with other applications and tools. Cloudflare uses two cookies as tokens: one to verify you made it past their challenge page and one to track your session. To bypass the challenge page, simply include both of these cookies (with the appropriate user-agent) in all HTTP requests you make.
 
-To retrieve just the cookies, use `cfscrape.get_tokens()`. (Note this function is a top-level function in the module, and is not a method of the scraper. So use `cfscrape.get_tokens()`; do not use `scraper.get_tokens()`.)
+To retrieve just the cookies, use `cfscrape.get_tokens()`.
 
-These functions return a tuple of `(cookie_dict, user_agent_string)`. **You must use the same user-agent string for obtaining the tokens and for making requests with those tokens, otherwise Cloudflare will flag you as a bot.** That means you have to pass the returned `user_agent_string` to whatever script or service you are passing the tokens to, and it must use that passed user-agent when it makes HTTP requests.
+*User-Agent Handling*
 
-You may optionally specify a custom user-agent with `cfscrape.get_tokens("http://somesite.com/", user_agent="User-Agent Here")`. A user-agent spoofing Firefox on Linux will be used by default.
+The two integration functions return a tuple of `(cookie_dict, user_agent_string)`. **You must use the same user-agent string for obtaining tokens and for making requests with those tokens, otherwise Cloudflare will flag you as a bot.** That means you have to pass the returned `user_agent_string` to whatever script, tool, or service you are passing the tokens to (e.g. curl, or a specialized scraping tool), and it must use that passed user-agent when it makes HTTP requests.
+
+If your tool already has a particular user-agent configured, you can make cloudflare-scrape use it with `cfscrape.get_tokens("http://somesite.com/", user_agent="User-Agent Here")` (also works for `get_cookie_string`). Otherwise, a user-agent spoofing Firefox on Linux will be chosen by default.
 
 --------------------------------------------------------------------------------
 
