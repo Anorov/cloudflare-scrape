@@ -109,11 +109,11 @@ Unfortunately, not all of requests' session attributes are easily transferable, 
 
 It's easy to integrate cloudflare-scrape with other applications and tools. Cloudflare uses two cookies as tokens: one to verify you made it past their challenge page and one to track your session. To bypass the challenge page, simply include both of these cookies (with the appropriate user-agent) in all HTTP requests you make.
 
-To retrieve just the cookies, use `cfscrape.get_tokens()`.
+To retrieve just the cookies (as a dictionary), use `cfscrape.get_tokens()`. To retrieve them as a full `Cookie` HTTP header, use `cfscrape.get_cookie_string()`.
 
 *User-Agent Handling*
 
-The two integration functions return a tuple of `(cookie_dict, user_agent_string)`. **You must use the same user-agent string for obtaining tokens and for making requests with those tokens, otherwise Cloudflare will flag you as a bot.** That means you have to pass the returned `user_agent_string` to whatever script, tool, or service you are passing the tokens to (e.g. curl, or a specialized scraping tool), and it must use that passed user-agent when it makes HTTP requests.
+The two integration functions return a tuple of `(cookie, user_agent_string)`. **You must use the same user-agent string for obtaining tokens and for making requests with those tokens, otherwise Cloudflare will flag you as a bot.** That means you have to pass the returned `user_agent_string` to whatever script, tool, or service you are passing the tokens to (e.g. curl, or a specialized scraping tool), and it must use that passed user-agent when it makes HTTP requests.
 
 If your tool already has a particular user-agent configured, you can make cloudflare-scrape use it with `cfscrape.get_tokens("http://somesite.com/", user_agent="User-Agent Here")` (also works for `get_cookie_string`). Otherwise, a user-agent spoofing Firefox on Linux will be chosen by default.
 
@@ -137,7 +137,7 @@ print tokens
 
 **Retrieving a cookie string**
 
-`get_cookie_string` is a convenience function for returning the tokens as a string for use as a Cookie HTTP header value.
+`get_cookie_string` is a convenience function for returning the tokens as a string for use as a `Cookie` HTTP header value.
 
 This is useful when crafting an HTTP request manually, or working with an external application or library that passes on raw cookie headers.
 
