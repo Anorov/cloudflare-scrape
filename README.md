@@ -28,7 +28,7 @@ This script will execute arbitrary Javascript code, which can potentially be har
 
 Barring a critical flaw in V8 or Node, the primary risk is that someone could craft a page which causes the Javascript interpreter to loop endlessly, or potentially consume a lot of memory if a garbage collector issue is identified in V8 or Node.
 
-Shell execution should be impossible if you use PyV8 or Node. For that reason, only these 3 Javascript runtimes are currently allowed.
+Shell execution should be impossible if you use PyV8 or Node. For that reason, only these two Javascript runtimes are currently allowed.
 
 Installation
 ============
