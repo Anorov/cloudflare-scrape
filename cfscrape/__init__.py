@@ -1,15 +1,15 @@
-import time
-import re
-import os
-from requests.sessions import Session
 import execjs
+import os
+import re
+from requests.sessions import Session
+import time
 
 try:
     from urlparse import urlparse
 except ImportError:
     from urllib.parse import urlparse
 
-DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0"
+DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"
 
 
 class CloudflareScraper(Session):
