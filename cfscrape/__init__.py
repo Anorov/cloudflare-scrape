@@ -70,7 +70,7 @@ class CloudflareScraper(Session):
 
     def extract_js(self, body):
         js = re.search(r"setTimeout\(function\(\){\s+(var "
-                        "t,r,a,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n", body).group(1)
+                        "s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n", body).group(1)
         js = re.sub(r"a\.value =(.+?) \+ .+?;", r"\1", js)
         js = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", js)
 
