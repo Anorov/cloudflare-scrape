@@ -24,11 +24,11 @@ Any script using cloudflare-scrape will sleep for 5 seconds for the first visit 
 Warning
 ======
 
-This script will execute arbitrary Javascript code, which can potentially be harmful in some runtime environments. Due to this, the only Javascript engines permitted are PyV8 and Node.js. With Node, all code will be executed in a sandbox, making Node's standard library inaccessible.
+This script will execute arbitrary Javascript code, which can potentially be harmful in some runtime environments. Due to this, the only Javascript engines permitted are PyV8 and Node.js. With Node, all code will be executed in a sandbox, making Node's standard library inaccessible. With PyV8, only Javascript built-ins are available, so the filesystem and shell cannot be accessed at all.
 
 Barring a critical flaw in V8 or Node, the primary risk is that someone could craft a page which causes the Javascript interpreter to loop endlessly, or potentially consume a lot of memory if a garbage collector issue is identified in V8 or Node.
 
-Shell execution should be impossible if you use PyV8 or Node. For that reason, only these two Javascript runtimes are currently allowed.
+Shell execution should be impossible if you use PyV8 or Node.
 
 Installation
 ============
