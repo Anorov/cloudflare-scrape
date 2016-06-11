@@ -1,4 +1,5 @@
 import time
+import random
 import re
 import os
 from requests.sessions import Session
@@ -9,7 +10,15 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
-DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:39.0) Gecko/20100101 Firefox/39.0"
+DEFAULT_USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.84 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:46.0) Gecko/20100101 Firefox/46.0",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:41.0) Gecko/20100101 Firefox/41.0"
+]
+
+DEFAULT_USER_AGENT = random.choice(DEFAULT_USER_AGENTS)
 
 
 class CloudflareScraper(Session):
@@ -71,7 +80,7 @@ class CloudflareScraper(Session):
     def extract_js(self, body):
         js = re.search(r"setTimeout\(function\(\){\s+(var "
                         "s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n", body).group(1)
-        js = re.sub(r"a\.value =(.+?) \+ .+?;", r"\1", js)
+        js = re.sub(r"a\.value = (parseInt\(.+?\)).+", r"\1", js)
         js = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", js)
 
         # Strip characters that could be used to exit the string context
@@ -135,7 +144,7 @@ class CloudflareScraper(Session):
                 cookie_domain = d
                 break
         else:
-            raise ValueError("Unable to find cookies")
+            raise ValueError("Unable to find Cloudflare cookies. Does the site actually have Cloudflare IUAM mode enabled?")
 
         return ({
                     "__cfduid": scraper.cookies.get("__cfduid", "", domain=cookie_domain),
