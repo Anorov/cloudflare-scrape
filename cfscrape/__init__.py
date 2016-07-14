@@ -3,7 +3,7 @@ import random
 import re
 import os
 from requests.sessions import Session
-import execjs
+import js2py
 
 try:
     from urlparse import urlparse
@@ -23,7 +23,6 @@ DEFAULT_USER_AGENT = random.choice(DEFAULT_USER_AGENTS)
 
 class CloudflareScraper(Session):
     def __init__(self, *args, **kwargs):
-        self.js_engine = kwargs.pop("js_engine", None)
         super(CloudflareScraper, self).__init__(*args, **kwargs)
 
         if "requests" in self.headers["User-Agent"]:
@@ -72,7 +71,8 @@ class CloudflareScraper(Session):
             raise
 
         # Safely evaluate the Javascript expression
-        params["jschl_answer"] = str(int(execjs.exec_(js)) + len(domain))
+        js = js.replace('return', '')
+        params["jschl_answer"] = str(int(js2py.eval_js(js)) + len(domain))
 
         return self.get(submit_url, **kwargs)
 
@@ -86,29 +86,15 @@ class CloudflareScraper(Session):
         # These characters are not currently used in Cloudflare's arithmetic snippet
         js = re.sub(r"[\n\\']", "", js)
 
-        if "Node" in self.js_engine:
-            # Use vm.runInNewContext to safely evaluate code
-            # The sandboxed code cannot use the Node.js standard library
-            return "return require('vm').runInNewContext('%s');" % js
-
         return js.replace("parseInt", "return parseInt")
 
     @classmethod
-    def create_scraper(cls, sess=None, js_engine=None):
+    def create_scraper(cls, sess=None):
         """
         Convenience function for creating a ready-to-go requests.Session (subclass) object.
         """
-        if js_engine:
-            os.environ["EXECJS_RUNTIME"] = js_engine
 
-        js_engine = execjs.get().name
-
-        if not ("Node" in js_engine or "V8" in js_engine):
-            raise EnvironmentError("Your Javascript runtime '%s' is not supported due to security concerns. "
-                                   "Please use Node.js or PyV8. To force a specific engine, "
-                                   "such as Node, call create_scraper(js_engine=\"Node\")" % js_engine)
-
-        scraper = cls(js_engine=js_engine)
+        scraper = cls()
 
         if sess:
             attrs = ["auth", "cert", "cookies", "headers", "hooks", "params", "proxies", "data"]
@@ -123,8 +109,8 @@ class CloudflareScraper(Session):
     ## Functions for integrating cloudflare-scrape with other applications and scripts
 
     @classmethod
-    def get_tokens(cls, url, user_agent=None, js_engine=None):
-        scraper = cls.create_scraper(js_engine=js_engine)
+    def get_tokens(cls, url, user_agent=None):
+        scraper = cls.create_scraper()
         if user_agent:
             scraper.headers["User-Agent"] = user_agent
 
@@ -153,11 +139,11 @@ class CloudflareScraper(Session):
                )
 
     @classmethod
-    def get_cookie_string(cls, url, user_agent=None, js_engine=None):
+    def get_cookie_string(cls, url, user_agent=None):
         """
         Convenience function for building a Cookie HTTP header value.
         """
-        tokens, user_agent = cls.get_tokens(url, user_agent=user_agent, js_engine=None)
+        tokens, user_agent = cls.get_tokens(url, user_agent=user_agent)
         return "; ".join("=".join(pair) for pair in tokens.items()), user_agent
 
 create_scraper = CloudflareScraper.create_scraper
