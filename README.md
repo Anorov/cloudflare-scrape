@@ -5,9 +5,7 @@ A simple Python module to bypass Cloudflare's anti-bot page (also known as "I'm 
 
 This can be useful if you wish to scrape or crawl a website protected with Cloudflare. Cloudflare's anti-bot page currently just checks if the client supports Javascript, though they may add additional techniques in the future.
 
-Due to Cloudflare continually changing and hardening their protection page, cloudflare-scrape now uses **[PyExecJS](https://github.com/doloopwhile/PyExecJS)**, a Python wrapper around multiple Javascript runtime engines. This allows the script to easily and effectively impersonate a regular web browser without explicitly parsing and converting Cloudflare's Javascript obfuscation techniques.
-
-The only supported Javascript engines at this time are Node.js and PyV8. This is due to potential security concerns with the other engines.
+Due to Cloudflare continually changing and hardening their protection page, cloudflare-scrape now uses **[js2py](https://github.com/PiotrDabkowski/Js2Py)**, a Python module that transpile javascript to python, without any javascript engines.
 
 Note: This only works when regular Cloudflare anti-bots is enabled (the "Checking your browser before accessing..." loading page). If there is a reCAPTCHA challenge, you're out of luck. Thankfully, the Javascript check page is much more common.
 
@@ -20,15 +18,6 @@ For reference, this is the default message Cloudflare uses for these sorts of pa
     Please allow up to 5 seconds...
 
 Any script using cloudflare-scrape will sleep for 5 seconds for the first visit to any site with Cloudflare anti-bots enabled, though no delay will occur after the first request.
-
-Warning
-======
-
-This script will execute arbitrary Javascript code, which can potentially be harmful in some runtime environments. Due to this, the only Javascript engines permitted are PyV8 and Node.js. With Node, all code will be executed in a sandbox, making Node's standard library inaccessible. With PyV8, only Javascript built-ins are available, so the filesystem and shell cannot be accessed at all.
-
-Barring a critical flaw in V8 or Node, the primary risk is that someone could craft a page which causes the Javascript interpreter to loop endlessly, or potentially consume a lot of memory if a garbage collector issue is identified in V8 or Node.
-
-Shell execution should be impossible if you use PyV8 or Node.
 
 Installation
 ============
@@ -44,10 +33,9 @@ Dependencies
 
 * Python 2.6 - 3.x
 * **[Requests](https://github.com/kennethreitz/requests)** >= 2.0
-* **[PyExecJS](https://pypi.python.org/pypi/PyExecJS)**
-* Node.js or PyV8. I recommend Node.js. You can install it with `apt-get install nodejs` on Ubuntu, [or by reading Node.js's installation instructions](https://github.com/joyent/node/wiki/Installing-Node.js-via-package-manager#debian-and-ubuntu-based-linux-distributions) otherwise.
+* **[Js2Py](https://github.com/PiotrDabkowski/Js2Py)**
 
-`python setup.py install` will install all of these dependencies except for the Javascript runtime, which must be installed manually if you don't already have a supported one.
+`python setup.py install` will install all of these dependencies.
 
 Updates
 =======
@@ -82,16 +70,6 @@ That's it. Any requests made from this session object to websites protected by C
 You use cloudflare-scrape exactly the same way you use Requests. (`CloudflareScraper` works identically to a requests `Session` object.) Just instead of calling `requests.get()` or `requests.post()`, you call `scraper.get()` or `scraper.post()`. Consult [Requests' documentation](http://docs.python-requests.org/en/latest/user/quickstart/) for more information.
 
 ## Options
-
-### Javascript engine
-
-ExecJS will pick from a list of Javascript engines that it detects are installed. You can optionally choose a specific ExecJS engine to use. (Only `"Node"` and `"PyV8"` are allowed.)
-
-```python
-scraper = cfscrape.create_scraper(js_engine="Node")
-# The js_engine keyword argument also works with all of the convenience functions described below
-
-```
 
 ### Existing session
 
