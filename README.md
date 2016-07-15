@@ -5,7 +5,7 @@ A simple Python module to bypass Cloudflare's anti-bot page (also known as "I'm 
 
 This can be useful if you wish to scrape or crawl a website protected with Cloudflare. Cloudflare's anti-bot page currently just checks if the client supports Javascript, though they may add additional techniques in the future.
 
-Due to Cloudflare continually changing and hardening their protection page, cloudflare-scrape now uses **[js2py](https://github.com/PiotrDabkowski/Js2Py)**. Js2Py transpiles Javascript to Python, which allows Cloudflare's Javascript challenges to be evaluated and solved with pure Python.
+Due to Cloudflare continually changing and hardening their protection page, cloudflare-scrape now uses **[Js2Py](https://github.com/PiotrDabkowski/Js2Py)**. Js2Py transpiles Javascript to Python, which allows Cloudflare's Javascript challenges to be evaluated and solved with pure Python.
 
 Note: This only works when regular Cloudflare anti-bots is enabled (the "Checking your browser before accessing..." loading page). If there is a reCAPTCHA challenge, you're out of luck. Thankfully, the Javascript check page is much more common.
 
