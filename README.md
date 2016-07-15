@@ -76,9 +76,9 @@ You use cloudflare-scrape exactly the same way you use Requests. (`CloudflareScr
 If you already have an existing requests session, you can pass it to `create_scraper()` to continue using that session.
 
 ```python
-sess = requests.session()
-sess.headers = ...
-scraper = cfscrape.create_scraper(session=sess)
+session = requests.session()
+session.headers = ...
+scraper = cfscrape.create_scraper(sess=session)
 ```
 
 Unfortunately, not all of requests' session attributes are easily transferable, so if you run into problems with this, you should replace your initial `sess = requests.session()` call with `sess = cfscrape.create_scraper()`.
