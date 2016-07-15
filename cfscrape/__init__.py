@@ -89,7 +89,7 @@ class CloudflareScraper(Session):
         return js.replace("parseInt", "return parseInt")
 
     @classmethod
-    def create_scraper(cls, sess=None):
+    def create_scraper(cls, sess=None, **kwargs):
         """
         Convenience function for creating a ready-to-go requests.Session (subclass) object.
         """
@@ -109,7 +109,7 @@ class CloudflareScraper(Session):
     ## Functions for integrating cloudflare-scrape with other applications and scripts
 
     @classmethod
-    def get_tokens(cls, url, user_agent=None):
+    def get_tokens(cls, url, user_agent=None, **kwargs):
         scraper = cls.create_scraper()
         if user_agent:
             scraper.headers["User-Agent"] = user_agent
@@ -139,7 +139,7 @@ class CloudflareScraper(Session):
                )
 
     @classmethod
-    def get_cookie_string(cls, url, user_agent=None):
+    def get_cookie_string(cls, url, user_agent=None, **kwargs):
         """
         Convenience function for building a Cookie HTTP header value.
         """
