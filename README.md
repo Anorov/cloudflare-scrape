@@ -172,4 +172,4 @@ This is a very simple and small library that just about anyone could make, but i
 
 **1FDQDWLdYDxTnuJzKL6bDqJ5KYT7yqvBVH**
 
-All donations are unnecessary, unexecpted, but greatly appreciated.
+All donations are unnecessary and not expected, but greatly appreciated.
