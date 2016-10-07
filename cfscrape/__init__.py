@@ -1,4 +1,5 @@
-import time
+from time import sleep
+import logging
 import random
 import re
 import os
@@ -13,7 +14,7 @@ except ImportError:
 DEFAULT_USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.84 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36",
     "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:46.0) Gecko/20100101 Firefox/46.0",
     "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:41.0) Gecko/20100101 Firefox/41.0"
 ]
@@ -40,7 +41,7 @@ class CloudflareScraper(Session):
         return resp
 
     def solve_cf_challenge(self, resp, **kwargs):
-        time.sleep(5)  # Cloudflare requires a delay before solving the challenge
+        sleep(5)  # Cloudflare requires a delay before solving the challenge
 
         body = resp.text
         parsed_url = urlparse(resp.url)
@@ -63,11 +64,11 @@ class CloudflareScraper(Session):
             # This may indicate Cloudflare has changed their anti-bot
             # technique. If you see this and are running the latest version,
             # please open a GitHub issue so I can update the code accordingly.
-            print("[!] Unable to parse Cloudflare anti-bots page. "
-                  "Try upgrading cloudflare-scrape, or submit a bug report "
-                  "if you are running the latest version. Please read "
-                  "https://github.com/Anorov/cloudflare-scrape#updates "
-                  "before submitting a bug report.\n")
+            logging.error("[!] Unable to parse Cloudflare anti-bots page. "
+                          "Try upgrading cloudflare-scrape, or submit a bug report "
+                          "if you are running the latest version. Please read "
+                          "https://github.com/Anorov/cloudflare-scrape#updates "
+                          "before submitting a bug report.")
             raise
 
         # Safely evaluate the Javascript expression
@@ -118,7 +119,7 @@ class CloudflareScraper(Session):
             resp = scraper.get(url)
             resp.raise_for_status()
         except Exception as e:
-            print("'%s' returned an error. Could not collect tokens.\n" % url)
+            logging.error("'%s' returned an error. Could not collect tokens." % url)
             raise
 
         domain = urlparse(resp.url).netloc
