@@ -2,7 +2,6 @@ from time import sleep
 import logging
 import random
 import re
-import os
 from requests.sessions import Session
 import js2py
 
@@ -72,7 +71,6 @@ class CloudflareScraper(Session):
             raise
 
         # Safely evaluate the Javascript expression
-        js = js.replace('return', '')
         params["jschl_answer"] = str(int(js2py.eval_js(js)) + len(domain))
 
         return self.get(submit_url, **kwargs)
@@ -87,7 +85,7 @@ class CloudflareScraper(Session):
         # These characters are not currently used in Cloudflare's arithmetic snippet
         js = re.sub(r"[\n\\']", "", js)
 
-        return js.replace("parseInt", "return parseInt")
+        return js
 
     @classmethod
     def create_scraper(cls, sess=None, **kwargs):
