@@ -4,6 +4,7 @@ import random
 import re
 from requests.sessions import Session
 import js2py
+from copy import deepcopy
 
 try:
     from urlparse import urlparse
@@ -39,7 +40,7 @@ class CloudflareScraper(Session):
         # Otherwise, no Cloudflare anti-bot detected
         return resp
 
-    def solve_cf_challenge(self, resp, **kwargs):
+    def solve_cf_challenge(self, resp, **original_kwargs):
         sleep(5)  # Cloudflare requires a delay before solving the challenge
 
         body = resp.text
@@ -47,8 +48,9 @@ class CloudflareScraper(Session):
         domain = urlparse(resp.url).netloc
         submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed_url.scheme, domain)
 
-        params = kwargs.setdefault("params", {})
-        headers = kwargs.setdefault("headers", {})
+        cloudflare_kwargs = deepcopy(original_kwargs)
+        params = cloudflare_kwargs.setdefault("params", {})
+        headers = cloudflare_kwargs.setdefault("headers", {})
         headers["Referer"] = resp.url
 
         try:
@@ -73,7 +75,13 @@ class CloudflareScraper(Session):
         # Safely evaluate the Javascript expression
         params["jschl_answer"] = str(int(js2py.eval_js(js)) + len(domain))
 
-        return self.get(submit_url, **kwargs)
+        # Requests transforms any request into a GET after a redirect,
+        # so the redirect has to be handled manually here to allow for
+        # performing other types of requests even as the first request.
+        method = resp.request.method
+        cloudflare_kwargs['allow_redirects'] = False
+        redirect = self.request(method, submit_url, **cloudflare_kwargs)
+        return self.request(method, redirect.headers['Location'], **original_kwargs)
 
     def extract_js(self, body):
         js = re.search(r"setTimeout\(function\(\){\s+(var "
