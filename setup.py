@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
   name = 'cfscrape',
   packages = ['cfscrape'],
-  version = '1.6.7',
+  version = '1.6.8',
   description = 'A simple Python module to bypass Cloudflare\'s anti-bot page. See https://github.com/Anorov/cloudflare-scrape for more information.',
   author = 'Anorov',
   author_email = 'anorov.vorona@gmail.com',

@@ -34,7 +34,11 @@ class CloudflareScraper(Session):
         resp = super(CloudflareScraper, self).request(method, url, *args, **kwargs)
 
         # Check if Cloudflare anti-bot is on
-        if resp.status_code == 503 and resp.headers.get("Server") == "cloudflare-nginx":
+        if ( resp.status_code == 503
+             and resp.headers.get("Server") == "cloudflare-nginx"
+             and b"jschl_vc" in resp.content
+             and b"jschl_answer" in resp.content
+        ):
             return self.solve_cf_challenge(resp, **kwargs)
 
         # Otherwise, no Cloudflare anti-bot detected
@@ -79,9 +83,9 @@ class CloudflareScraper(Session):
         # so the redirect has to be handled manually here to allow for
         # performing other types of requests even as the first request.
         method = resp.request.method
-        cloudflare_kwargs['allow_redirects'] = False
+        cloudflare_kwargs["allow_redirects"] = False
         redirect = self.request(method, submit_url, **cloudflare_kwargs)
-        return self.request(method, redirect.headers['Location'], **original_kwargs)
+        return self.request(method, redirect.headers["Location"], **original_kwargs)
 
     def extract_js(self, body):
         js = re.search(r"setTimeout\(function\(\){\s+(var "
@@ -100,7 +104,6 @@ class CloudflareScraper(Session):
         """
         Convenience function for creating a ready-to-go requests.Session (subclass) object.
         """
-
         scraper = cls()
 
         if sess:
