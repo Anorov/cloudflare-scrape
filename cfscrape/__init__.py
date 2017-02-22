@@ -104,7 +104,7 @@ class CloudflareScraper(Session):
         """
         Convenience function for creating a ready-to-go requests.Session (subclass) object.
         """
-        scraper = cls(**kwargs)
+        scraper = cls()
 
         if sess:
             attrs = ["auth", "cert", "cookies", "headers", "hooks", "params", "proxies", "data"]
@@ -120,12 +120,12 @@ class CloudflareScraper(Session):
 
     @classmethod
     def get_tokens(cls, url, user_agent=None, **kwargs):
-        scraper = cls.create_scraper(**kwargs)
+        scraper = cls.create_scraper()
         if user_agent:
             scraper.headers["User-Agent"] = user_agent
 
         try:
-            resp = scraper.get(url)
+            resp = scraper.get(url, **kwargs)
             resp.raise_for_status()
         except Exception as e:
             logging.error("'%s' returned an error. Could not collect tokens." % url)
