@@ -104,7 +104,7 @@ class CloudflareScraper(Session):
         """
         Convenience function for creating a ready-to-go requests.Session (subclass) object.
         """
-        scraper = cls()
+        scraper = cls(**kwargs)
 
         if sess:
             attrs = ["auth", "cert", "cookies", "headers", "hooks", "params", "proxies", "data"]
@@ -120,7 +120,7 @@ class CloudflareScraper(Session):
 
     @classmethod
     def get_tokens(cls, url, user_agent=None, **kwargs):
-        scraper = cls.create_scraper()
+        scraper = cls.create_scraper(**kwargs)
         if user_agent:
             scraper.headers["User-Agent"] = user_agent
 
@@ -153,7 +153,7 @@ class CloudflareScraper(Session):
         """
         Convenience function for building a Cookie HTTP header value.
         """
-        tokens, user_agent = cls.get_tokens(url, user_agent=user_agent)
+        tokens, user_agent = cls.get_tokens(url, user_agent=user_agent, **kwargs)
         return "; ".join("=".join(pair) for pair in tokens.items()), user_agent
 
 create_scraper = CloudflareScraper.create_scraper
