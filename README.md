@@ -5,7 +5,7 @@ A simple Python module to bypass Cloudflare's anti-bot page (also known as "I'm 
 
 This can be useful if you wish to scrape or crawl a website protected with Cloudflare. Cloudflare's anti-bot page currently just checks if the client supports Javascript, though they may add additional techniques in the future.
 
-Due to Cloudflare continually changing and hardening their protection page, cloudflare-scrape now uses **[Js2Py](https://github.com/PiotrDabkowski/Js2Py)**. Js2Py transpiles Javascript to Python, which allows Cloudflare's Javascript challenges to be evaluated and solved with pure Python.
+Due to Cloudflare continually changing and hardening their protection page, cloudflare-scrape requires Node.js to solve Javascript challenges. This allows the script to easily impersonate a regular web browser without explicitly deobfuscating and parsing Cloudflare's Javascript.
 
 Note: This only works when regular Cloudflare anti-bots is enabled (the "Checking your browser before accessing..." loading page). If there is a reCAPTCHA challenge, you're out of luck. Thankfully, the Javascript check page is much more common.
 
@@ -19,6 +19,15 @@ For reference, this is the default message Cloudflare uses for these sorts of pa
 
 Any script using cloudflare-scrape will sleep for 5 seconds for the first visit to any site with Cloudflare anti-bots enabled, though no delay will occur after the first request.
 
+Warning
+======
+
+This script will execute arbitrary Javascript code, which can potentially be harmful. Node is the only Javascript engine permitted because it has code sandboxing functionality. All code executed in Node's sandbox cannot access Node's standard library or any Python functions.
+
+Barring a critical flaw in Node, the primary risk is a maliciously crafted page which causes the Javascript interpreter to loop endlessly, or potentially consume a lot of memory.
+
+Shell execution should be impossible unless a severe flaw is discovered in Node or its sandboxing module.
+
 Installation
 ============
 
@@ -31,9 +40,11 @@ Dependencies
 
 * Python 2.6 - 3.x
 * **[Requests](https://github.com/kennethreitz/requests)** >= 2.0
-* **[Js2Py](https://github.com/PiotrDabkowski/Js2Py)**
+* **[PyExecJS](https://pypi.python.org/pypi/PyExecJS)**
+* **Node.js** is required for (safe) Javascript execution.
+    * Your computer or server may already have it (check with `node -v`). If not, you can install it with `apt-get install nodejs` on Ubuntu and Debian. Otherwise, please read [Node's installation instructions](https://nodejs.org/en/download/package-manager/).
 
-`python setup.py install` will install all of these dependencies.
+`python setup.py install` will install the Python dependencies automatically. Node is the only application you need to install yourself.
 
 Updates
 =======
@@ -65,13 +76,13 @@ print scraper.get("http://somesite.com").content  # => "<!DOCTYPE html><html><he
 
 That's it. Any requests made from this session object to websites protected by Cloudflare anti-bot will be handled automatically. Websites not using Cloudflare will be treated normally. You don't need to configure or call anything further, and you can effectively treat all websites as if they're not protected with anything.
 
-You use cloudflare-scrape exactly the same way you use Requests. (`CloudflareScraper` works identically to a requests `Session` object.) Just instead of calling `requests.get()` or `requests.post()`, you call `scraper.get()` or `scraper.post()`. Consult [Requests' documentation](http://docs.python-requests.org/en/latest/user/quickstart/) for more information.
+You use cloudflare-scrape exactly the same way you use Requests. (`CloudflareScraper` works identically to a Requests `Session` object.) Just instead of calling `requests.get()` or `requests.post()`, you call `scraper.get()` or `scraper.post()`. Consult [Requests' documentation](http://docs.python-requests.org/en/latest/user/quickstart/) for more information.
 
 ## Options
 
 ### Existing session
 
-If you already have an existing requests session, you can pass it to `create_scraper()` to continue using that session.
+If you already have an existing Requests session, you can pass it to `create_scraper()` to continue using that session.
 
 ```python
 session = requests.session()
@@ -79,13 +90,15 @@ session.headers = ...
 scraper = cfscrape.create_scraper(sess=session)
 ```
 
-Unfortunately, not all of requests' session attributes are easily transferable, so if you run into problems with this, you should replace your initial `sess = requests.session()` call with `sess = cfscrape.create_scraper()`.
+Unfortunately, not all of Requests' session attributes are easily transferable, so if you run into problems with this, you should replace your initial `sess = requests.session()` call with `sess = cfscrape.create_scraper()`.
 
 ## Integration
 
 It's easy to integrate cloudflare-scrape with other applications and tools. Cloudflare uses two cookies as tokens: one to verify you made it past their challenge page and one to track your session. To bypass the challenge page, simply include both of these cookies (with the appropriate user-agent) in all HTTP requests you make.
 
 To retrieve just the cookies (as a dictionary), use `cfscrape.get_tokens()`. To retrieve them as a full `Cookie` HTTP header, use `cfscrape.get_cookie_string()`.
+
+`get_tokens` and `get_cookie_string` both accept Requests' usual keyword arguments (like `get_tokens(url, proxies={"http": "socks5://localhost:9050"})`). Please read [Requests' documentation on request arguments](http://docs.python-requests.org/en/master/api/#requests.Session.request) for more information.
 
 *User-Agent Handling*
 
@@ -97,16 +110,19 @@ If your tool already has a particular user-agent configured, you can make cloudf
 
 ### Integration examples
 
-Remember, you must always use the same user-agent when retrieving or using these cookies. These functions all return a tuple of `(data, user_agent)`.
+Remember, you must always use the same user-agent when retrieving or using these cookies. These functions all return a tuple of `(cookie_dict, user_agent_string)`.
 
-**Retrieving a cookie dict**
+**Retrieving a cookie dict through a proxy**
 
-`get_tokens` is a convenience function for returning a Python dict containing Cloudflare's session cookies.
+`get_tokens` is a convenience function for returning a Python dict containing Cloudflare's session cookies. For demonstration, we will configure this request to use a proxy. (Please note that if you request Cloudflare clearance tokens through a proxy, you must always use the same proxy when those tokens are passed to the server. Cloudflare requires that the challenge-solving IP and the visitor IP stay the same.)
+
+If you do not wish to use a proxy, just don't pass the `proxies` keyword argument. Note that these convenience functions support all of Requests' normal keyword arguments.
 
 ```python
 import cfscrape
 
-tokens, user_agent = cfscrape.get_tokens("http://somesite.com")
+proxies = {"http": "http://localhost:8080", "https": "http://localhost:8080"}
+tokens, user_agent = cfscrape.get_tokens("http://somesite.com", proxies=proxies)
 print tokens
 # => {'cf_clearance': 'c8f913c707b818b47aa328d81cab57c349b1eee5-1426733163-3600', '__cfduid': 'dd8ec03dfdbcb8c2ea63e920f1335c1001426733158'}
 ```
