@@ -22,6 +22,10 @@ Any script using cloudflare-scrape will sleep for 5 seconds for the first visit 
 Warning
 ======
 
+**Due to a critical security vulnerability, if you are running version 1.6.6 - 1.7.1, please upgrade to version 1.8.0 immediately.** Versions between 1.6.6 and 1.7.1 used a library called Js2Py, which is unsafe to run on untrusted input. If you are running a vulnerable version, a malicious website owner could craft a page which executes arbitrary Python code on the machine that runs this script. This can only occur if the website that the user attempts to scrape has specifically prepared a page to exploit vulnerable versions of cfscrape.
+
+*(The following warning applies to version 1.8.0 and onward - including the current version.)*
+
 This script will execute arbitrary Javascript code, which can potentially be harmful. Node is the only Javascript engine permitted because it has code sandboxing functionality. All code executed in Node's sandbox cannot access Node's standard library or any Python functions.
 
 Barring a critical flaw in Node, the primary risk is a maliciously crafted page which causes the Javascript interpreter to loop endlessly, or potentially consume a lot of memory.
