@@ -185,6 +185,28 @@ cmd = "curl --cookie {cookie_arg} -A {user_agent} {url}"
 print(subprocess.check_output(cmd.format(cookie_arg=cookie_arg, user_agent=user_agent, url=url), shell=True))
 ```
 
+**curl through proxy example**
+
+Fetch page contents of any site protected with Cloudflare via curl through a proxy. cfscrape and curl **must use the same proxy** and thus the proxy must be sticky (It cannot change IP address on each HTTP request).
+```python
+import subprocess
+import cfscrape
+
+url = "http://somesite.com"
+useragent = "Scraping Bot"
+proxy = "http://someproxy.com:1234"
+
+proxies = {
+      'http': proxy,
+      'https': proxy,
+}
+
+cookie_arg, user_agent = cfscrape.get_cookie_string(url, useragent, proxies=proxies)
+
+print(subprocess.check_output(["curl", "--cookie", cookie_arg, "-A", user_agent, "--proxy", proxy, url]), shell=True)
+
+```
+
 Donations
 =========
 
