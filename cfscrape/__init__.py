@@ -82,6 +82,8 @@ class CloudflareScraper(Session):
         method = resp.request.method
         cloudflare_kwargs["allow_redirects"] = False
         redirect = self.request(method, submit_url, **cloudflare_kwargs)
+        if redirect.headers["Location"] == '/':
+            return redirect
         return self.request(method, redirect.headers["Location"], **original_kwargs)
 
     def solve_challenge(self, body):
