@@ -54,7 +54,7 @@ class CloudflareScraper(Session):
 
         body = resp.text
         parsed_url = urlparse(resp.url)
-        domain = urlparse(resp.url).netloc
+        domain = parsed_url.netloc
         submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed_url.scheme, domain)
 
         cloudflare_kwargs = deepcopy(original_kwargs)
@@ -82,6 +82,11 @@ class CloudflareScraper(Session):
         method = resp.request.method
         cloudflare_kwargs["allow_redirects"] = False
         redirect = self.request(method, submit_url, **cloudflare_kwargs)
+
+        redirect_location = urlparse(redirect.headers["Location"])
+        if not redirect_location.netloc:
+            redirect_url = '%s://%s%s' % (parsed_url.scheme, domain, redirect_location.path)
+            return self.request(method, redirect_url, **original_kwargs)
         return self.request(method, redirect.headers["Location"], **original_kwargs)
 
     def solve_challenge(self, body):
