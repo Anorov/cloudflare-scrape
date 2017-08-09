@@ -85,7 +85,7 @@ class CloudflareScraper(Session):
 
         redirect_location = urlparse(redirect.headers["Location"])
         if not redirect_location.netloc:
-            redirect_url = '%s://%s%s' % (parsed_url.scheme, domain, redirect_location.path)
+            redirect_url = "%s://%s%s" % (parsed_url.scheme, domain, redirect_location.path)
             return self.request(method, redirect_url, **original_kwargs)
         return self.request(method, redirect.headers["Location"], **original_kwargs)
 
