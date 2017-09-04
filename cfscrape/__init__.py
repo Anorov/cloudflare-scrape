@@ -108,7 +108,7 @@ class CloudflareScraper(Session):
 
         # Use vm.runInNewContext to safely evaluate code
         # The sandboxed code cannot use the Node.js standard library
-        js = "return require('vm').runInNewContext('%s');" % js
+        js = "return require('vm').runInNewContext('%s', Object.create(null), {timeout: 5000});" % js
 
         try:
             node = execjs.get("Node")
