@@ -176,12 +176,3 @@ cookie_arg, user_agent = cfscrape.get_cookie_string(url)
 cmd = "curl --cookie {cookie_arg} -A {user_agent} {url}"
 print(subprocess.check_output(cmd.format(cookie_arg=cookie_arg, user_agent=user_agent, url=url), shell=True))
 ```
-
-Donations
-=========
-
-This is a very simple and small library that just about anyone could make, but if you are interested in donating to support my efforts, you can donate Bitcoin to:
-
-**1FDQDWLdYDxTnuJzKL6bDqJ5KYT7yqvBVH**
-
-All donations are unnecessary and not expected, but greatly appreciated.
