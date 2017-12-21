@@ -40,7 +40,7 @@ class CloudflareScraper(Session):
 
         # Check if Cloudflare anti-bot is on
         if ( resp.status_code == 503
-             and resp.headers.get("Server") == "cloudflare-nginx"
+             and resp.headers.get("Server", "").startswith("cloudflare")
              and b"jschl_vc" in resp.content
              and b"jschl_answer" in resp.content
         ):
