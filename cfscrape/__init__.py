@@ -4,8 +4,9 @@ import re
 from requests.sessions import Session
 from copy import deepcopy
 from time import sleep
-
 import execjs
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.poolmanager import PoolManager
 
 try:
     from urlparse import urlparse
@@ -27,8 +28,35 @@ DEFAULT_USER_AGENT = random.choice(DEFAULT_USER_AGENTS)
 BUG_REPORT = ("Cloudflare may have changed their technique, or there may be a bug in the script.\n\nPlease read " "https://github.com/Anorov/cloudflare-scrape#updates, then file a "
 "bug report at https://github.com/Anorov/cloudflare-scrape/issues.")
 
-
 class CloudflareScraper(Session):
+
+    class SourceAddressAdapter(HTTPAdapter):
+        # Code for this class copied and modified from:
+        # https://github.com/requests/toolbelt/blob/master/requests_toolbelt/adapters/source.py
+        def __init__(self, source_address, **kwargs):
+            if isinstance(source_address, basestring):
+                self.source_address = (source_address, 0)
+            elif isinstance(source_address, tuple):
+                self.source_address = source_address
+            else:
+                raise TypeError(
+                    "source_address must be IP address string or (ip, port) tuple"
+                )
+
+            super(CloudflareScraper.SourceAddressAdapter, self).__init__(**kwargs)
+
+        def init_poolmanager(self, connections, maxsize, block=False):
+            self.poolmanager = PoolManager(
+                num_pools=connections,
+                maxsize=maxsize,
+                block=block,
+                source_address=self.source_address)
+
+        def proxy_manager_for(self, *args, **kwargs):
+            kwargs['source_address'] = self.source_address
+            return super(CloudflareScraper.SourceAddressAdapter, self).proxy_manager_for(
+                *args, **kwargs)
+
     def __init__(self, *args, **kwargs):
         super(CloudflareScraper, self).__init__(*args, **kwargs)
 
@@ -131,7 +159,7 @@ class CloudflareScraper(Session):
         return result
 
     @classmethod
-    def create_scraper(cls, sess=None, **kwargs):
+    def create_scraper(cls, sess=None, source_ip=None, **kwargs):
         """
         Convenience function for creating a ready-to-go requests.Session (subclass) object.
         """
@@ -143,6 +171,10 @@ class CloudflareScraper(Session):
                 val = getattr(sess, attr, None)
                 if val:
                     setattr(scraper, attr, val)
+
+        if source_ip:
+            scraper.mount('http://', CloudflareScraper.SourceAddressAdapter(source_ip))
+            scraper.mount('https://', CloudflareScraper.SourceAddressAdapter(source_ip))
 
         return scraper
 
