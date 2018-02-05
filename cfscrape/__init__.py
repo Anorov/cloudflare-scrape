@@ -30,6 +30,8 @@ BUG_REPORT = ("Cloudflare may have changed their technique, or there may be a bu
 
 class CloudflareScraper(Session):
     def __init__(self, *args, **kwargs):
+        self.delay = kwargs.pop('delay', 5)
+
         super(CloudflareScraper, self).__init__(*args, **kwargs)
 
         if "requests" in self.headers["User-Agent"]:
@@ -51,7 +53,7 @@ class CloudflareScraper(Session):
         return resp
 
     def solve_cf_challenge(self, resp, **original_kwargs):
-        sleep(5)  # Cloudflare requires a delay before solving the challenge
+        sleep(self.delay)  # Cloudflare requires a delay before solving the challenge
 
         body = resp.text
         parsed_url = urlparse(resp.url)
