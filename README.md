@@ -19,11 +19,6 @@ For reference, this is the default message Cloudflare uses for these sorts of pa
 
 Any script using cloudflare-scrape will sleep for 5 seconds for the first visit to any site with Cloudflare anti-bots enabled, though no delay will occur after the first request.
 
-Warning
-======
-
-**Due to a critical security vulnerability, if you are running any version below 1.9 please upgrade to version 1.9 or higher immediately.** Versions before 1.9.0 used unsafe Javascript execution mechanisms which could result in arbitrary code execution. If you are running a vulnerable version, a malicious website owner could craft a page which executes arbitrary code on the machine that runs this script. This can only occur if the website that the user attempts to scrape has specifically prepared a page to exploit vulnerable versions of cfscrape.
-
 Installation
 ============
 
@@ -87,6 +82,16 @@ scraper = cfscrape.create_scraper(sess=session)
 ```
 
 Unfortunately, not all of Requests' session attributes are easily transferable, so if you run into problems with this, you should replace your initial `sess = requests.session()` call with `sess = cfscrape.create_scraper()`.
+
+### Delays
+
+Normally, when a browser is faced with a Cloudflare IUAM challenge page, Cloudflare requires the browser to wait 5 seconds before submitting the challenge answer. If a website is under heavy load, sometimes this may fail. One solution is to increase the delay (perhaps to 10 or 15 seconds, depending on the website). If you would like to override this delay, pass the `delay` keyword argument to `create_scraper()` or `CloudflareScraper()`.
+
+There is no need to override this delay unless cloudflare-scrape is generates an error recommending you increase the delay.
+
+```python
+scraper = cfscrape.create_scraper(delay=10)
+```
 
 ## Integration
 

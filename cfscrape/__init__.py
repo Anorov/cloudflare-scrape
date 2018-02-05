@@ -1,18 +1,18 @@
 import logging
 import random
 import re
-from requests.sessions import Session
+import subprocess
 from copy import deepcopy
 from time import sleep
 
-import execjs
+from requests.sessions import Session
 
 try:
     from urlparse import urlparse
 except ImportError:
     from urllib.parse import urlparse
 
-__version__ = "1.9.3"
+__version__ = "1.9.4"
 
 DEFAULT_USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36",
@@ -24,32 +24,49 @@ DEFAULT_USER_AGENTS = [
 
 DEFAULT_USER_AGENT = random.choice(DEFAULT_USER_AGENTS)
 
-BUG_REPORT = ("Cloudflare may have changed their technique, or there may be a bug in the script.\n\nPlease read " "https://github.com/Anorov/cloudflare-scrape#updates, then file a "
-"bug report at https://github.com/Anorov/cloudflare-scrape/issues.")
+BUG_REPORT = """\
+Cloudflare may have changed their technique, or there may be a bug in the script.
 
+Please read https://github.com/Anorov/cloudflare-scrape#updates, then file a \
+bug report at https://github.com/Anorov/cloudflare-scrape/issues."\
+"""
+
+ANSWER_ACCEPT_ERROR = """\
+The challenge answer was not properly accepted by Cloudflare. This can occur if \
+the target website is under heavy load, or if Cloudflare is experiencing issues. You can
+potentially resolve this by increasing the challenge answer delay (default: 5 seconds). \
+For example: cfscrape.create_scraper(delay=10)
+
+If increasing the delay does not help, please open a GitHub issue at \
+https://github.com/Anorov/cloudflare-scrape/issues\
+"""
 
 class CloudflareScraper(Session):
     def __init__(self, *args, **kwargs):
-        self.delay = kwargs.pop('delay', 5)
-
+        self.delay = kwargs.pop("delay", 5)
         super(CloudflareScraper, self).__init__(*args, **kwargs)
 
         if "requests" in self.headers["User-Agent"]:
-            # Spoof Firefox on Linux if no custom User-Agent has been set
+            # Set a random User-Agent if no custom User-Agent has been set
             self.headers["User-Agent"] = DEFAULT_USER_AGENT
+
+    def is_cloudflare_challenge(self, resp):
+        return (
+            resp.status_code == 503
+            and resp.headers.get("Server", "").startswith("cloudflare")
+            and b"jschl_vc" in resp.content
+            and b"jschl_answer" in resp.content
+        )
 
     def request(self, method, url, *args, **kwargs):
         resp = super(CloudflareScraper, self).request(method, url, *args, **kwargs)
 
         # Check if Cloudflare anti-bot is on
-        if ( resp.status_code == 503
-             and resp.headers.get("Server", "").startswith("cloudflare")
-             and b"jschl_vc" in resp.content
-             and b"jschl_answer" in resp.content
-        ):
-            return self.solve_cf_challenge(resp, **kwargs)
+        if self.is_cloudflare_challenge(resp):
+            resp = self.solve_cf_challenge(resp, **kwargs)
+            if self.is_cloudflare_challenge(resp):
+                raise ValueError(ANSWER_ACCEPT_ERROR)
 
-        # Otherwise, no Cloudflare anti-bot detected
         return resp
 
     def solve_cf_challenge(self, resp, **original_kwargs):
@@ -111,16 +128,15 @@ class CloudflareScraper(Session):
 
         # Use vm.runInNewContext to safely evaluate code
         # The sandboxed code cannot use the Node.js standard library
-        js = "return require('vm').runInNewContext('%s', Object.create(null), {timeout: 5000});" % js
+        js = "console.log(require('vm').runInNewContext('%s', Object.create(null), {timeout: 5000}));" % js
 
         try:
-            node = execjs.get("Node")
-        except Exception:
-            raise EnvironmentError("Missing Node.js runtime. Node is required. Please read the cfscrape"
-                " README's Dependencies section: https://github.com/Anorov/cloudflare-scrape#dependencies.")
-
-        try:
-            result = node.exec_(js)
+            result = subprocess.check_output(["node", "-e", js]).strip()
+        except OSError as e:
+            if e.errno == 2:
+                raise EnvironmentError("Missing Node.js runtime. Node is required. Please read the cfscrape"
+                    " README's Dependencies section: https://github.com/Anorov/cloudflare-scrape#dependencies.")
+            raise
         except Exception:
             logging.error("Error executing Cloudflare IUAM Javascript. %s" % BUG_REPORT)
             raise
@@ -128,16 +144,16 @@ class CloudflareScraper(Session):
         try:
             result = int(result)
         except Exception:
-            raise ValueError("Cloudflare IUAM challenge returned unexpected value. %s" % BUG_REPORT)
+            raise ValueError("Cloudflare IUAM challenge returned unexpected answer. %s" % BUG_REPORT)
 
         return result
 
     @classmethod
     def create_scraper(cls, sess=None, **kwargs):
         """
-        Convenience function for creating a ready-to-go requests.Session (subclass) object.
+        Convenience function for creating a ready-to-go CloudflareScraper object.
         """
-        scraper = cls()
+        scraper = cls(**kwargs)
 
         if sess:
             attrs = ["auth", "cert", "cookies", "headers", "hooks", "params", "proxies", "data"]
