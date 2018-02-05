@@ -31,7 +31,6 @@ Dependencies
 
 * Python 2.6 - 3.x
 * **[Requests](https://github.com/kennethreitz/requests)** >= 2.0
-* **[PyExecJS](https://pypi.python.org/pypi/PyExecJS)**
 * **Node.js** is required for (safe) Javascript execution.
     * Your computer or server may already have it (check with `node -v`). If not, you can install it with `apt-get install nodejs` on Ubuntu and Debian. Otherwise, please read [Node's installation instructions](https://nodejs.org/en/download/package-manager/).
 
