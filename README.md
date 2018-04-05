@@ -31,7 +31,7 @@ Dependencies
 
 * Python 2.6 - 3.x
 * **[Requests](https://github.com/kennethreitz/requests)** >= 2.0
-* **Node.js** is required for (safe) Javascript execution.
+* **[Node.js](https://nodejs.org/)**
     * Your computer or server may already have it (check with `node -v`). If not, you can install it with `apt-get install nodejs` on Ubuntu and Debian. Otherwise, please read [Node's installation instructions](https://nodejs.org/en/download/package-manager/).
 
 `python setup.py install` will install the Python dependencies automatically. Node is the only application you need to install yourself.
@@ -86,7 +86,7 @@ Unfortunately, not all of Requests' session attributes are easily transferable, 
 
 Normally, when a browser is faced with a Cloudflare IUAM challenge page, Cloudflare requires the browser to wait 5 seconds before submitting the challenge answer. If a website is under heavy load, sometimes this may fail. One solution is to increase the delay (perhaps to 10 or 15 seconds, depending on the website). If you would like to override this delay, pass the `delay` keyword argument to `create_scraper()` or `CloudflareScraper()`.
 
-There is no need to override this delay unless cloudflare-scrape is generates an error recommending you increase the delay.
+There is no need to override this delay unless cloudflare-scrape generates an error recommending you increase the delay.
 
 ```python
 scraper = cfscrape.create_scraper(delay=10)

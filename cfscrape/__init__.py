@@ -12,14 +12,16 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
-__version__ = "1.9.4"
+__version__ = "1.9.5"
 
 DEFAULT_USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:46.0) Gecko/20100101 Firefox/46.0",
-    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:41.0) Gecko/20100101 Firefox/41.0"
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/65.0.3325.181 Chrome/65.0.3325.181 Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 7.0; Moto G (5) Build/NPPS25.137-93-8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.137 Mobile Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 7_0_4 like Mac OS X) AppleWebKit/537.51.1 (KHTML, like Gecko) Version/7.0 Mobile/11B554a Safari/9537.53",
+    "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:60.0) Gecko/20100101 Firefox/60.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:59.0) Gecko/20100101 Firefox/59.0",
+    "Mozilla/5.0 (Windows NT 6.3; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0"
 ]
 
 DEFAULT_USER_AGENT = random.choice(DEFAULT_USER_AGENTS)
@@ -34,8 +36,8 @@ bug report at https://github.com/Anorov/cloudflare-scrape/issues."\
 ANSWER_ACCEPT_ERROR = """\
 The challenge answer was not properly accepted by Cloudflare. This can occur if \
 the target website is under heavy load, or if Cloudflare is experiencing issues. You can
-potentially resolve this by increasing the challenge answer delay (default: 5 seconds). \
-For example: cfscrape.create_scraper(delay=10)
+potentially resolve this by increasing the challenge answer delay (default: 8 seconds). \
+For example: cfscrape.create_scraper(delay=15)
 
 If increasing the delay does not help, please open a GitHub issue at \
 https://github.com/Anorov/cloudflare-scrape/issues\
@@ -43,7 +45,7 @@ https://github.com/Anorov/cloudflare-scrape/issues\
 
 class CloudflareScraper(Session):
     def __init__(self, *args, **kwargs):
-        self.delay = kwargs.pop("delay", 5)
+        self.delay = kwargs.pop("delay", 8)
         super(CloudflareScraper, self).__init__(*args, **kwargs)
 
         if "requests" in self.headers["User-Agent"]:
@@ -64,8 +66,6 @@ class CloudflareScraper(Session):
         # Check if Cloudflare anti-bot is on
         if self.is_cloudflare_challenge(resp):
             resp = self.solve_cf_challenge(resp, **kwargs)
-            if self.is_cloudflare_challenge(resp):
-                raise ValueError(ANSWER_ACCEPT_ERROR)
 
         return resp
 
@@ -94,7 +94,7 @@ class CloudflareScraper(Session):
             raise ValueError("Unable to parse Cloudflare anti-bots page: %s %s" % (e.message, BUG_REPORT))
 
         # Solve the Javascript challenge
-        params["jschl_answer"] = str(self.solve_challenge(body) + len(domain))
+        params["jschl_answer"] = self.solve_challenge(body, domain)
 
         # Requests transforms any request into a GET after a redirect,
         # so the redirect has to be handled manually here to allow for
@@ -109,21 +109,21 @@ class CloudflareScraper(Session):
             return self.request(method, redirect_url, **original_kwargs)
         return self.request(method, redirect.headers["Location"], **original_kwargs)
 
-    def solve_challenge(self, body):
+    def solve_challenge(self, body, domain):
         try:
             js = re.search(r"setTimeout\(function\(\){\s+(var "
                         "s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n", body).group(1)
         except Exception:
             raise ValueError("Unable to identify Cloudflare IUAM Javascript on website. %s" % BUG_REPORT)
 
-        js = re.sub(r"a\.value = (parseInt\(.+?\)).+", r"\1", js)
-        js = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", js)
+        js = re.sub(r"a\.value = (.+ \+ t\.length).+", r"\1", js)
+        js = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", js).replace("t.length", str(len(domain)))
 
         # Strip characters that could be used to exit the string context
         # These characters are not currently used in Cloudflare's arithmetic snippet
         js = re.sub(r"[\n\\']", "", js)
 
-        if "parseInt" not in js:
+        if "toFixed" not in js:
             raise ValueError("Error parsing Cloudflare IUAM Javascript challenge. %s" % BUG_REPORT)
 
         # Use vm.runInNewContext to safely evaluate code
@@ -134,7 +134,7 @@ class CloudflareScraper(Session):
             result = subprocess.check_output(["node", "-e", js]).strip()
         except OSError as e:
             if e.errno == 2:
-                raise EnvironmentError("Missing Node.js runtime. Node is required. Please read the cfscrape"
+                raise EnvironmentError("Missing Node.js runtime. Node is required and must be in the PATH (check with `node -v`). Your Node binary may be called `nodejs` rather than `node`, in which case you may need to run `apt-get install nodejs-legacy` on some Debian-based systems. (Please read the cfscrape"
                     " README's Dependencies section: https://github.com/Anorov/cloudflare-scrape#dependencies.")
             raise
         except Exception:
@@ -142,7 +142,7 @@ class CloudflareScraper(Session):
             raise
 
         try:
-            result = int(result)
+            float(result)
         except Exception:
             raise ValueError("Cloudflare IUAM challenge returned unexpected answer. %s" % BUG_REPORT)
 
