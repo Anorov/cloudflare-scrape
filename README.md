@@ -56,7 +56,7 @@ If you are still encountering a problem, open an issue and please include:
 * The full exception and stack trace.
 * The URL of the Cloudflare-protected page which the script does not work on.
 * A Pastebin or Gist containing the HTML source of the protected page.
-* The result of value of the version field from running 'pip show cfscrape'
+* The result of value of the version field from running `pip show cfscrape`
 
 [This issue comment is a good example.](https://github.com/Anorov/cloudflare-scrape/issues/3#issuecomment-45827514)
 
