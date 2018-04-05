@@ -43,11 +43,20 @@ Cloudflare modifies their anti-bot protection page occasionally. So far it has c
 
 If you notice that the anti-bot page has changed, or if this module suddenly stops working, please create a GitHub issue so that I can update the code accordingly.
 
-In your issue, please include:
+* Many issues are a result of users not updating to the latest release of this project. Before filing an issue, please run the following command:
+```
+pip show cfscrape
+```
+If the value of the version field is not the latest release, please run the following to update your package:
+```
+pip install cfscrape -U
+```
+If you are still encountering a problem, open an issue and please include:
 
 * The full exception and stack trace.
 * The URL of the Cloudflare-protected page which the script does not work on.
 * A Pastebin or Gist containing the HTML source of the protected page.
+* The version number from `pip show cfscrape`.
 
 [This issue comment is a good example.](https://github.com/Anorov/cloudflare-scrape/issues/3#issuecomment-45827514)
 
