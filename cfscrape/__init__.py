@@ -233,7 +233,6 @@ class CloudflareScraperAsync(ClientSession):
         resp = await super(CloudflareScraperAsync, self)._request(method, url, *args, **kwargs)
         # Check if Cloudflare anti-bot is on
         if await self.is_cloudflare_challenge(resp):
-            print("Solving js")
             resp = await self.solve_cf_challenge(resp, **kwargs)
         return resp
 
