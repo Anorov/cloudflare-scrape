@@ -2,10 +2,15 @@ import logging
 import random
 import re
 import subprocess
+from subprocess import CalledProcessError
+import asyncio
+from asyncio.subprocess import PIPE
 from copy import deepcopy
 from time import sleep
 
+
 from requests.sessions import Session
+from aiohttp import ClientSession
 
 try:
     from urlparse import urlparse
@@ -205,6 +210,147 @@ class CloudflareScraper(Session):
         tokens, user_agent = cls.get_tokens(url, user_agent=user_agent, **kwargs)
         return "; ".join("=".join(pair) for pair in tokens.items()), user_agent
 
+
+class CloudflareScraperAsync(ClientSession):
+    def __init__(self, *args, **kwargs):
+        self.delay = kwargs.pop("delay", 8)
+        headers = kwargs.pop('headers', {})
+        if 'User-Agent' not in headers:
+            headers = {"User-Agent": DEFAULT_USER_AGENT}
+        kwargs['headers'] = headers
+        super(CloudflareScraperAsync, self).__init__(*args, **kwargs)
+
+    async def is_cloudflare_challenge(self, resp):
+        content = await resp.read()
+        return (
+            resp.status == 503
+            and resp.headers.get("Server", "").startswith("cloudflare")
+            and b"jschl_vc" in content
+            and b"jschl_answer" in content
+        )
+
+    async def _request(self, method, url, *args, **kwargs):
+        resp = await super(CloudflareScraperAsync, self)._request(method, url, *args, **kwargs)
+        # Check if Cloudflare anti-bot is on
+        if await self.is_cloudflare_challenge(resp):
+            resp = await self.solve_cf_challenge(resp, **kwargs)
+        return resp
+
+    async def solve_cf_challenge(self, resp, **original_kwargs):
+        await asyncio.sleep(self.delay)  # Cloudflare requires a delay before solving the challenge
+
+        body = await resp.text()
+        parsed_url = urlparse(str(resp.url))
+        domain = parsed_url.netloc
+        submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed_url.scheme, domain)
+
+        cloudflare_kwargs = deepcopy(original_kwargs)
+        params = cloudflare_kwargs.setdefault("params", {})
+        headers = cloudflare_kwargs.setdefault("headers", {})
+        headers["Referer"] = str(resp.url)
+
+        try:
+            params["jschl_vc"] = re.search(r'name="jschl_vc" value="(\w+)"', body).group(1)
+            params["pass"] = re.search(r'name="pass" value="(.+?)"', body).group(1)
+
+        except Exception as e:
+            # Something is wrong with the page.
+            # This may indicate Cloudflare has changed their anti-bot
+            # technique. If you see this and are running the latest version,
+            # please open a GitHub issue so I can update the code accordingly.
+            raise ValueError("Unable to parse Cloudflare anti-bots page: %s %s" % (e.message, BUG_REPORT))
+
+        # Solve the Javascript challenge
+        params["jschl_answer"] = await self.solve_challenge(body, domain)
+
+        # Requests transforms any request into a GET after a redirect,
+        # so the redirect has to be handled manually here to allow for
+        # performing other types of requests even as the first request.
+        method = resp.method
+        cloudflare_kwargs["allow_redirects"] = False
+        redirect = await self.request(method, submit_url, **cloudflare_kwargs)
+
+        redirect_location = urlparse(redirect.headers["Location"])
+        if not redirect_location.netloc:
+            redirect_url = "%s://%s%s" % (parsed_url.scheme, domain, redirect_location.path)
+            return await self.request(method, redirect_url, **original_kwargs)
+        return await self.request(method, redirect.headers["Location"], **original_kwargs)
+
+    async def solve_challenge(self, body, domain):
+        try:
+            js = re.search(r"setTimeout\(function\(\){\s+(var "
+                        "s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value =.+?)\r?\n", body).group(1)
+        except Exception:
+            raise ValueError("Unable to identify Cloudflare IUAM Javascript on website. %s" % BUG_REPORT)
+
+        js = re.sub(r"a\.value = (.+ \+ t\.length).+", r"\1", js)
+        js = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", js).replace("t.length", str(len(domain)))
+
+        # Strip characters that could be used to exit the string context
+        # These characters are not currently used in Cloudflare's arithmetic snippet
+        js = re.sub(r"[\n\\']", "", js)
+
+        if "toFixed" not in js:
+            raise ValueError("Error parsing Cloudflare IUAM Javascript challenge. %s" % BUG_REPORT)
+
+        # Use vm.runInNewContext to safely evaluate code
+        # The sandboxed code cannot use the Node.js standard library
+        js = "console.log(require('vm').runInNewContext('%s', Object.create(null), {timeout: 5000}));" % js
+
+        try:
+            process = await asyncio.create_subprocess_exec("node", "-e", js, stdout=PIPE, stderr=PIPE)
+            result, result_err  = await process.communicate()
+            if process.returncode != 0:
+                raise CalledProcessError(process.returncode, ["node", "-e", js], stderr=result_err)
+
+        except OSError as e:
+            if e.errno == 2:
+                raise EnvironmentError("Missing Node.js runtime. Node is required and must be in the PATH (check with `node -v`). Your Node binary may be called `nodejs` rather than `node`, in which case you may need to run `apt-get install nodejs-legacy` on some Debian-based systems. (Please read the cfscrape"
+                    " README's Dependencies section: https://github.com/Anorov/cloudflare-scrape#dependencies.")
+            raise
+        except Exception:
+            logging.error("Error executing Cloudflare IUAM Javascript. %s" % BUG_REPORT)
+            raise
+
+        try:
+            float(result)
+        except Exception:
+            raise ValueError("Cloudflare IUAM challenge returned unexpected answer. %s" % BUG_REPORT)
+
+        # Not sure why but aiohttp errors if we dont convert to str here
+        return result.decode().strip()
+
+    @classmethod
+    def create_scraper(cls, sess=None, **kwargs):
+        """
+        Convenience function for creating a ready-to-go CloudflareScraper object.
+        """
+        scraper = cls(**kwargs)
+        if sess is not None:
+            raise NotImplementedError("Creating a scraper with a sessions is not supported yet")
+        return scraper
+
+
+    ## Functions for integrating cloudflare-scrape with other applications and scripts
+
+    @classmethod
+    async def get_tokens(cls, url, user_agent=None, **kwargs):
+        raise NotImplementedError
+
+    @classmethod
+    def get_cookie_string(cls, url, user_agent=None, **kwargs):
+        """
+        Convenience function for building a Cookie HTTP header value.
+        """
+        raise NotImplementedError
+
 create_scraper = CloudflareScraper.create_scraper
 get_tokens = CloudflareScraper.get_tokens
 get_cookie_string = CloudflareScraper.get_cookie_string
+
+create_scraper_async = CloudflareScraperAsync.create_scraper
+get_tokens_async = CloudflareScraperAsync.get_tokens
+get_cookie_string_async = CloudflareScraperAsync.get_cookie_string
+
+
+
