@@ -168,7 +168,7 @@ class CloudflareScraper(Session):
     ## Functions for integrating cloudflare-scrape with other applications and scripts
 
     @classmethod
-    def get_tokens(cls, url, user_agent=None, **kwargs):
+    def get_tokens(cls, url, user_agent=None, curl_cookie_file=None, **kwargs):
         scraper = cls.create_scraper()
         if user_agent:
             scraper.headers["User-Agent"] = user_agent
@@ -189,6 +189,20 @@ class CloudflareScraper(Session):
                 break
         else:
             raise ValueError("Unable to find Cloudflare cookies. Does the site actually have Cloudflare IUAM (\"I'm Under Attack Mode\") enabled?")
+        
+        if curl_cookie_file:
+            curl_cookies = []
+            for cookie in scraper.cookies:
+                cookie_dict = cookie.__dict__
+                if(cookie_dict['domain'] == cookie_domain):
+                    # http://www.cookiecentral.com/faq/#3.5
+                    curl_cookies.append('\t'.join(
+                        [cookie_dict['domain'], 'TRUE', cookie_dict['path'], 'TRUE' if cookie_dict['secure'] else 'FALSE',
+                        str(cookie_dict['expires']), cookie_dict['name'], cookie_dict['value']]
+                    ))
+            text_file = open(curl_cookie_file, "w")
+            text_file.write('\n'.join(curl_cookies) + '\n')
+            text_file.close()
 
         return ({
                     "__cfduid": scraper.cookies.get("__cfduid", "", domain=cookie_domain),
