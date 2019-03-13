@@ -119,7 +119,7 @@ class CloudflareScraper(Session):
         except Exception:
             raise ValueError("Unable to identify Cloudflare IUAM Javascript on website. %s" % BUG_REPORT)
 
-        js = re.sub(r"a\.value = (.+ \+ t\.length).+", r"\1", js)
+        js = re.sub(r"a\.value = (.+ \+ t\.length(\).toFixed\(10\))?).+", r"\1", js)
         js = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", js).replace("t.length", str(len(domain)))
 
         # Strip characters that could be used to exit the string context
