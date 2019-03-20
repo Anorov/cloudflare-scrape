@@ -12,7 +12,7 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 
-__version__ = "1.9.6"
+__version__ = "1.9.7"
 
 DEFAULT_USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36",
