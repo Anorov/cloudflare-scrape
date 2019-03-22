@@ -120,7 +120,7 @@ class CloudflareScraper(Session):
         except Exception:
             raise ValueError("Unable to identify Cloudflare IUAM Javascript on website. %s" % BUG_REPORT)
 
-        js = re.sub(r"a\.value = (.+ \+ t\.length(\).toFixed\(10\))?).+", r"\1", js)
+        js = re.sub(r"a\.value = (.+\.toFixed\(10\);).+", r"\1", js)
         js = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", js).replace("t.length", str(len(domain)))
 
         # Strip characters that could be used to exit the string context
@@ -130,9 +130,30 @@ class CloudflareScraper(Session):
         if "toFixed" not in js:
             raise ValueError("Error parsing Cloudflare IUAM Javascript challenge. %s" % BUG_REPORT)
 
+        # 2019-03-20: Cloudflare sometimes stores part of the challenge in a div which is later
+        # added using document.getElementById(x).innerHTML, so it is necessary to simulate that
+        # method and value.
+        try:
+            # Find the id of the div in the javascript code.
+            k = re.search(r"k\s+=\s+'([^']+)';", body).group(1)
+            # Find the div with that id and store its content.
+            val = re.search(r'<div(.*)id="%s"(.*)>(.*)</div>' % (k), body).group(3)
+        except Exception:
+            # If not available, either the code has been modified again, or the old
+            # style challenge is used.
+            k = ''
+            val = ''
+
         # Use vm.runInNewContext to safely evaluate code
         # The sandboxed code cannot use the Node.js standard library
-        js = "console.log(require('vm').runInNewContext('%s', Object.create(null), {timeout: 5000}));" % js
+        # Add the atob method which is now used by Cloudflares code, but is not available in all node versions.
+        simulate_document_js = 'var document= {getElementById: function(x) { return {innerHTML:"%s"};}}' % (val)
+        atob_js = 'var atob = function(str) {return Buffer.from(str, "base64").toString("binary");}'
+        # t is not defined, so we have to define it and set it to the domain name.
+        js = '%s;%s;var t="%s";%s' % (simulate_document_js,atob_js,domain,js)
+        buffer_js = 'var Buffer = require('buffer').Buffer'
+        # Pass Buffer into the new context, so it is available for atob.
+        js = "%s;console.log(require('vm').runInNewContext('%s', {'Buffer':Buffer}, {timeout: 5000}));" % (buffer_js, js)
 
         try:
             result = subprocess.check_output(["node", "-e", js]).strip()
