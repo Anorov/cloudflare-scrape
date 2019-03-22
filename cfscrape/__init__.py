@@ -9,8 +9,10 @@ from requests.sessions import Session
 
 try:
     from urlparse import urlparse
+    from urlparse import urlunparse
 except ImportError:
     from urllib.parse import urlparse
+    from urllib.parse import urlunparse
 
 __version__ = "1.9.7"
 
@@ -109,7 +111,7 @@ class CloudflareScraper(Session):
 
         redirect_location = urlparse(redirect.headers["Location"])
         if not redirect_location.netloc:
-            redirect_url = "%s://%s%s" % (parsed_url.scheme, domain, redirect_location.path)
+            redirect_url = urlunparse((parsed_url.scheme, domain, redirect_location.path, redirect_location.params, redirect_location.query, redirect_location.fragment))
             return self.request(method, redirect_url, **original_kwargs)
         return self.request(method, redirect.headers["Location"], **original_kwargs)
 
