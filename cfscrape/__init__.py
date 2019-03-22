@@ -46,6 +46,7 @@ https://github.com/Anorov/cloudflare-scrape/issues\
 class CloudflareScraper(Session):
     def __init__(self, *args, **kwargs):
         self.delay = kwargs.pop("delay", 8)
+        self.guess_delay = kwargs.pop("guess_delay", False)
         super(CloudflareScraper, self).__init__(*args, **kwargs)
 
         if "requests" in self.headers["User-Agent"]:
@@ -95,6 +96,10 @@ class CloudflareScraper(Session):
 
         # Solve the Javascript challenge
         params["jschl_answer"] = self.solve_challenge(body, domain)
+
+        # Figure out the delay that cloudfare requires.
+        if self.guess_delay:
+            self.delay = float(re.search(r"submit\(\);\r?\n\s*},\s*([0-9]+)", body).group(1)) / float(1000)
 
         # Requests transforms any request into a GET after a redirect,
         # so the redirect has to be handled manually here to allow for
