@@ -151,7 +151,7 @@ class CloudflareScraper(Session):
         atob_js = 'var atob = function(str) {return Buffer.from(str, "base64").toString("binary");}'
         # t is not defined, so we have to define it and set it to the domain name.
         js = '%s;%s;var t="%s";%s' % (simulate_document_js,atob_js,domain,js)
-        buffer_js = 'var Buffer = require('buffer').Buffer'
+        buffer_js = "var Buffer = require('buffer').Buffer"
         # Pass Buffer into the new context, so it is available for atob.
         js = "%s;console.log(require('vm').runInNewContext('%s', {'Buffer':Buffer}, {timeout: 5000}));" % (buffer_js, js)
 
