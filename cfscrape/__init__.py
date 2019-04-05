@@ -47,7 +47,8 @@ https://github.com/Anorov/cloudflare-scrape/issues\
 
 class CloudflareScraper(Session):
     def __init__(self, *args, **kwargs):
-        self.delay = kwargs.pop("delay", 8)
+        self.default_delay = 8
+        self.delay =  kwargs.pop("delay", self.default_delay)
         super(CloudflareScraper, self).__init__(*args, **kwargs)
 
         if "requests" in self.headers["User-Agent"]:
@@ -98,6 +99,14 @@ class CloudflareScraper(Session):
         # Solve the Javascript challenge
         params["jschl_answer"] = self.solve_challenge(body, domain)
 
+        # Check if the default delay has been overridden. If not, use the delay required by
+        # cloudflare.
+        if self.delay == self.default_delay:
+            try:
+                self.delay = float(re.search(r"submit\(\);\r?\n\s*},\s*([0-9]+)", body).group(1)) / float(1000)
+            except:
+                pass
+
         # Requests transforms any request into a GET after a redirect,
         # so the redirect has to be handled manually here to allow for
         # performing other types of requests even as the first request.
@@ -105,10 +114,10 @@ class CloudflareScraper(Session):
         cloudflare_kwargs["allow_redirects"] = False
 
         end_time = time.time()
-        time.sleep(self.delay - (end_time - start_time)) # Cloudflare requires a delay before solving the challenge
+         # Cloudflare requires a delay before solving the challenge
+        time.sleep(self.delay - (end_time - start_time))
 
         redirect = self.request(method, submit_url, **cloudflare_kwargs)
-
         redirect_location = urlparse(redirect.headers["Location"])
         if not redirect_location.netloc:
             redirect_url = urlunparse((parsed_url.scheme, domain, redirect_location.path, redirect_location.params, redirect_location.query, redirect_location.fragment))
