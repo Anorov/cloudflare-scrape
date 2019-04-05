@@ -64,6 +64,19 @@ class CloudflareScraper(Session):
         )
 
     def request(self, method, url, *args, **kwargs):
+        self.headers = (
+            OrderedDict(
+                [
+                    ('User-Agent', self.headers['User-Agent']),
+                    ('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'),
+                    ('Accept-Language', 'en-US,en;q=0.5'),
+                    ('Accept-Encoding', 'gzip, deflate'),
+                    ('Connection',  'close'),
+                    ('Upgrade-Insecure-Requests', '1')
+                ]
+            )
+        )
+
         resp = super(CloudflareScraper, self).request(method, url, *args, **kwargs)
 
         # Check if Cloudflare anti-bot is on
@@ -86,9 +99,9 @@ class CloudflareScraper(Session):
         headers["Referer"] = resp.url
 
         try:
+            params["s"] = re.search(r'name="s"\svalue="(?P<s_value>[^"]+)', body).group('s_value')
             params["jschl_vc"] = re.search(r'name="jschl_vc" value="(\w+)"', body).group(1)
             params["pass"] = re.search(r'name="pass" value="(.+?)"', body).group(1)
-            params["s"] = re.search(r'name="s"\svalue="(?P<s_value>[^"]+)', body).group('s_value')
         except Exception as e:
             # Something is wrong with the page.
             # This may indicate Cloudflare has changed their anti-bot
