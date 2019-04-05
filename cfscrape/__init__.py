@@ -7,6 +7,8 @@ import time
 
 from requests.sessions import Session
 
+from collections import OrderedDict
+
 try:
     from urlparse import urlparse
     from urlparse import urlunparse
@@ -25,8 +27,6 @@ DEFAULT_USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:59.0) Gecko/20100101 Firefox/59.0",
     "Mozilla/5.0 (Windows NT 6.3; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0"
 ]
-
-DEFAULT_USER_AGENT = random.choice(DEFAULT_USER_AGENTS)
 
 BUG_REPORT = """\
 Cloudflare may have changed their technique, or there may be a bug in the script.
@@ -52,7 +52,7 @@ class CloudflareScraper(Session):
 
         if "requests" in self.headers["User-Agent"]:
             # Set a random User-Agent if no custom User-Agent has been set
-            self.headers["User-Agent"] = DEFAULT_USER_AGENT
+            self.headers["User-Agent"] = random.choice(DEFAULT_USER_AGENTS)
 
     def is_cloudflare_challenge(self, resp):
         return (
