@@ -177,7 +177,7 @@ class CloudflareScraper(Session):
         js = '%s;%s;var t="%s";%s' % (simulate_document_js,atob_js,domain,js)
         buffer_js = "var Buffer = require('buffer').Buffer"
         # Pass Buffer into the new context, so it is available for atob.
-        js = "%s;console.log(require('vm').runInNewContext('%s', {'Buffer':Buffer}, {timeout: 5000}));" % (buffer_js, js)
+        js = "%s;console.log(require('vm').runInNewContext('%s', {'Buffer':Buffer,'g':String.fromCharCode}, {timeout: 5000}));" % (buffer_js, js)
 
         try:
             result = subprocess.check_output(["node", "-e", js]).strip()
