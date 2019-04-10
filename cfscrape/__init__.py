@@ -145,7 +145,14 @@ class CloudflareScraper(Session):
             raise ValueError("Unable to identify Cloudflare IUAM Javascript on website. %s" % BUG_REPORT)
 
         js = re.sub(r"a\.value = (.+\.toFixed\(10\);).+", r"\1", js)
-        js = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", js).replace("t.length", str(len(domain)))
+        # Match code that accesses the DOM and remove it, but without stripping too much.
+        try:
+            solution_name = re.search("s,t,o,p,b,r,e,a,k,i,n,g,f,\s*(.+)\s*=", js).groups(1)
+            match = re.search("(.*};)\n\s*(t\s*=(.+))\n\s*(;%s.*)" % (solution_name), js, re.M | re.I | re.DOTALL).groups()
+            js = match[0] + match[-1]
+        except Exception:
+            raise ValueError("Error parsing Cloudflare IUAM Javascript challenge. %s" % BUG_REPORT)
+        js = js.replace("t.length", str(len(domain)))
 
         # Strip characters that could be used to exit the string context
         # These characters are not currently used in Cloudflare's arithmetic snippet
