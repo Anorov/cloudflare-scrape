@@ -22,7 +22,7 @@ Any script using cloudflare-scrape will sleep for 5 seconds for the first visit 
 Installation
 ============
 
-Simply run `pip install cfscrape`. The PyPI package is at https://pypi.python.org/pypi/cfscrape/
+Simply run `pip install cfscrape`. You can upgrade with `pip install -U cfscrape`. The PyPI package is at https://pypi.python.org/pypi/cfscrape/
 
 Alternatively, clone this repository and run `python setup.py install`.
 
@@ -34,31 +34,36 @@ Dependencies
 * **[Node.js](https://nodejs.org/)**
     * Your computer or server may already have it (check with `node -v`). If not, you can install it with `apt-get install nodejs` on Ubuntu. Debian requires `nodejs-legacy`. Otherwise, please read [Node's installation instructions](https://nodejs.org/en/download/package-manager/).
 
-`python setup.py install` will install the Python dependencies automatically. Node is the only application you need to install yourself.
+`pip install cfscrape` or `python setup.py install` will install the Python dependencies automatically. Node is the only application you need to install yourself.
 
 Updates
 =======
 
-Cloudflare modifies their anti-bot protection page occasionally. So far it has changed maybe once per year on average.
+Cloudflare regularly modifies their anti-bot protection page and improves their bot detection capabilities.
 
 If you notice that the anti-bot page has changed, or if this module suddenly stops working, please create a GitHub issue so that I can update the code accordingly.
 
 * Many issues are a result of users not updating to the latest release of this project. Before filing an issue, please run the following command:
+
 ```
 pip show cfscrape
 ```
-If the value of the version field is not the latest release, please run the following to update your package:
-```
-pip install cfscrape -U
-```
-If you are still encountering a problem, open an issue and please include:
 
-* The full exception and stack trace.
+If the value of the version field is not the latest release, please run the following to update your package:
+
+```
+pip install -U cfscrape
+```
+
+If you are still encountering a problem, create a GitHub issue and please include:
+
+* The relevant code snippet that's experiencing an issue or raising an exception.
+* The full exception and traceback, if applicable.
 * The URL of the Cloudflare-protected page which the script does not work on.
 * A Pastebin or Gist containing the HTML source of the protected page.
 * The version number from `pip show cfscrape`.
 
-[This issue comment is a good example.](https://github.com/Anorov/cloudflare-scrape/issues/3#issuecomment-45827514)
+If you've upgraded and are still experiencing problems, **[click here to create a GitHub issue and fill out the pertinent information](https://github.com/Anorov/cloudflare-scrape/issues/new?assignees=&labels=bug&template=bug-report-template.md&title=)**.
 
 Usage
 =====
