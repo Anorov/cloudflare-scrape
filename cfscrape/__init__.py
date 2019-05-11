@@ -15,7 +15,7 @@ from requests.compat import urlparse, urlunparse
 from requests.exceptions import RequestException
 
 
-__version__ = "2.0.2"
+__version__ = "2.0.3"
 
 USER_AGENTS_PATH = os.path.join(os.path.dirname(__file__), "user_agents.json")
 

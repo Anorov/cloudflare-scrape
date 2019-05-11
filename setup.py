@@ -18,7 +18,7 @@ setup(
     name="cfscrape",
     packages=["cfscrape"],
     version=VERSION,
-    description='A simple Python module to bypass Cloudflare"s anti-bot page. See https://github.com/Anorov/cloudflare-scrape for more information.',
+    description='A simple Python module to bypass Cloudflare\'s anti-bot page. See https://github.com/Anorov/cloudflare-scrape for more information.',
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     author="Anorov",
