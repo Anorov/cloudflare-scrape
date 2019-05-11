@@ -7,15 +7,15 @@ import subprocess
 import copy
 import time
 import os
+from base64 import b64encode
+from collections import OrderedDict
 
 from requests.sessions import Session
 from requests.compat import urlparse, urlunparse
 from requests.exceptions import RequestException
-from base64 import b64encode
-from collections import OrderedDict
 
-__version__ = "2.0.1"
 
+__version__ = "2.0.2"
 
 USER_AGENTS_PATH = os.path.join(os.path.dirname(__file__), "user_agents.json")
 
@@ -58,6 +58,10 @@ https://github.com/Anorov/cloudflare-scrape/issues\
 
 
 class CloudflareError(RequestException):
+    pass
+
+
+class CloudflareCaptchaError(CloudflareError):
     pass
 
 
@@ -113,7 +117,7 @@ class CloudflareScraper(Session):
         if ssl.OPENSSL_VERSION_NUMBER < 0x10101000:
             error += ". Your OpenSSL version is lower than 1.1.1. Please upgrade your OpenSSL library and recompile Python."
 
-        raise CloudflareError(error, response=resp)
+        raise CloudflareCaptchaError(error, response=resp)
 
     def solve_cf_challenge(self, resp, **original_kwargs):
         start_time = time.time()
@@ -245,7 +249,9 @@ class CloudflareScraper(Session):
         )
 
         try:
-            result = subprocess.check_output(["node", "-e", js])
+            result = subprocess.check_output(
+                ["node", "-e", js], stdin=subprocess.PIPE, stderr=subprocess.PIPE
+            )
         except OSError as e:
             if e.errno == 2:
                 raise EnvironmentError(
