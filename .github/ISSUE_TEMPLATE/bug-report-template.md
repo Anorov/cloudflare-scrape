@@ -25,6 +25,8 @@ Run `pip show cfscrape` and paste the output below:
 
 ## Complete exception and traceback
 
+(*If the problem doesn't involve an exception being raised, leave this blank*)
+
 ```
 
 ```
