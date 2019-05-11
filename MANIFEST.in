@@ -1,1 +1,3 @@
+recursive-include cfscrape *.py
+include cfscrape/user_agents.json
 include LICENSE README.md
