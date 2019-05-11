@@ -1,13 +1,13 @@
 cloudflare-scrape
 =================
 
-A simple Python module to bypass Cloudflare's anti-bot page (also known as "I'm Under Attack Mode", or IUAM), implemented with [Requests](https://github.com/kennethreitz/requests). Cloudflare changes their techniques periodically, so I will update this repo frequently.
+A simple Python module to bypass Cloudflare's anti-bot page (also known as "I'm Under Attack Mode", or IUAM), implemented with [Requests](https://github.com/kennethreitz/requests). Python versions 2.6 - 3.7 are supported. Cloudflare changes their techniques periodically, so I will update this repo frequently.
 
-This can be useful if you wish to scrape or crawl a website protected with Cloudflare. Cloudflare's anti-bot page currently just checks if the client supports Javascript, though they may add additional techniques in the future.
+This can be useful if you wish to scrape or crawl a website protected with Cloudflare. Cloudflare's anti-bot page currently just checks if the client supports JavaScript, though they may add additional techniques in the future.
 
-Due to Cloudflare continually changing and hardening their protection page, cloudflare-scrape requires Node.js to solve Javascript challenges. This allows the script to easily impersonate a regular web browser without explicitly deobfuscating and parsing Cloudflare's Javascript.
+Due to Cloudflare continually changing and hardening their protection page, cloudflare-scrape requires Node.js to solve JavaScript challenges. This allows the script to easily impersonate a regular web browser without explicitly deobfuscating and parsing Cloudflare's JavaScript.
 
-Note: This only works when regular Cloudflare anti-bots is enabled (the "Checking your browser before accessing..." loading page). If there is a reCAPTCHA challenge, you're out of luck. Thankfully, the Javascript check page is much more common.
+Note: This only works when regular Cloudflare anti-bots is enabled (the "Checking your browser before accessing..." loading page). If there is a reCAPTCHA challenge, you're out of luck. Thankfully, the JavaScript check page is much more common.
 
 For reference, this is the default message Cloudflare uses for these sorts of pages:
 
@@ -26,15 +26,13 @@ Simply run `pip install cfscrape`. You can upgrade with `pip install -U cfscrape
 
 Alternatively, clone this repository and run `python setup.py install`.
 
-Dependencies
+Node.js dependency
 ============
 
-* Python 2.6 - 3.x
-* **[Requests](https://github.com/kennethreitz/requests)** >= 2.0
-* **[Node.js](https://nodejs.org/)**
-    * Your computer or server may already have it (check with `node -v`). If not, you can install it with `apt-get install nodejs` on Ubuntu. Debian requires `nodejs-legacy`. Otherwise, please read [Node's installation instructions](https://nodejs.org/en/download/package-manager/).
+[Node.js](https://nodejs.org/) is required to interpret Cloudflare's obfuscated JavaScript challenge.
 
-`pip install cfscrape` or `python setup.py install` will install the Python dependencies automatically. Node is the only application you need to install yourself.
+Your machine may already have Node installed (check with `node -v`). If not, you can install it with `apt-get install nodejs` on Ubuntu and Debian and `brew install node` on macOS. Otherwise, you can get it from [Node's download page](https://nodejs.org/en/download/) or [their package manager installation page](https://nodejs.org/en/download/package-manager/).
+
 
 Updates
 =======
@@ -43,13 +41,7 @@ Cloudflare regularly modifies their anti-bot protection page and improves their 
 
 If you notice that the anti-bot page has changed, or if this module suddenly stops working, please create a GitHub issue so that I can update the code accordingly.
 
-* Many issues are a result of users not updating to the latest release of this project. Before filing an issue, please run the following command:
-
-```
-pip show cfscrape
-```
-
-If the value of the version field is not the latest release, please run the following to update your package:
+* Many issues are a result of users not updating to the latest release of this project. Before filing an issue, please run the following command to update cloudflare-scrape to the latest version:
 
 ```
 pip install -U cfscrape
@@ -57,11 +49,12 @@ pip install -U cfscrape
 
 If you are still encountering a problem, create a GitHub issue and please include:
 
+* The version number from `pip show cfscrape`.
 * The relevant code snippet that's experiencing an issue or raising an exception.
 * The full exception and traceback, if applicable.
 * The URL of the Cloudflare-protected page which the script does not work on.
 * A Pastebin or Gist containing the HTML source of the protected page.
-* The version number from `pip show cfscrape`.
+
 
 If you've upgraded and are still experiencing problems, **[click here to create a GitHub issue and fill out the pertinent information](https://github.com/Anorov/cloudflare-scrape/issues/new?assignees=&labels=bug&template=bug-report-template.md&title=)**.
 
