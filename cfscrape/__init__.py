@@ -65,7 +65,7 @@ class CaptchaProvokingCiphersRemover(HTTPAdapter):
         context = create_urllib3_context()
         problematic_ciphers = ("AES128-SHA",)
 
-        ciphers = [cipher['name'] for cipher in context.get_ciphers() if cipher['name'] in problematic_ciphers]
+        ciphers = [cipher["name"] for cipher in context.get_ciphers() if cipher["name"] in problematic_ciphers]
         context.set_ciphers(":".join(ciphers))
 
         super(CaptchaProvokingCiphersRemover, self).init_poolmanager(*args, ssl_context=context, **kwargs)
