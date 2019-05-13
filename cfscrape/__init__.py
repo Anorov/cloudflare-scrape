@@ -11,9 +11,11 @@ from base64 import b64encode
 from collections import OrderedDict
 
 from requests.sessions import Session
+from requests.adapters import HTTPAdapter
 from requests.compat import urlparse, urlunparse
 from requests.exceptions import RequestException
 
+from requests.urllib3.util.ssl_ import create_urllib3_context
 
 __version__ = "2.0.3"
 
@@ -56,6 +58,21 @@ If increasing the delay does not help, please open a GitHub issue at \
 https://github.com/Anorov/cloudflare-scrape/issues\
 """
 
+class CaptchaProvokingCiphersRemover(HTTPAdapter):
+    url = "https://"
+
+    def __init__(self, ciphers_to_remove=[], *args, **kwargs):
+        self.ciphers_to_remove = isinstance(ciphers_to_remove, (list, tuple)) and ciphers_to_remove or [ciphers_to_remove]
+
+        super(CaptchaProvokingCiphersRemover, self).__init__(*args, **kwargs)
+
+    def init_poolmanager(self, *args, **kwargs):
+        context = create_urllib3_context()
+
+        ciphers = [cipher['name'] for cipher in context.get_ciphers() if cipher['name'] not in self.ciphers_to_remove]
+        context.set_ciphers(":".join(ciphers))
+
+        super(CaptchaProvokingCiphersRemover, self).init_poolmanager(*args, ssl_context=context, **kwargs)
 
 class CloudflareError(RequestException):
     pass
@@ -66,6 +83,9 @@ class CloudflareCaptchaError(CloudflareError):
 
 
 class CloudflareScraper(Session):
+    # AES128-SHA ciphers seem to provoke a cloudflare challenge captcha.
+    captcha_adapter = CaptchaProvokingCiphersRemover(["AES128-SHA"])
+
     def __init__(self, *args, **kwargs):
         self.delay = kwargs.pop("delay", None)
         # Use headers with a random User-Agent if no custom headers have been set
@@ -97,6 +117,11 @@ class CloudflareScraper(Session):
         )
 
     def request(self, method, url, *args, **kwargs):
+        # Mount the adapter responsible for removing ciphers which might provoke
+        # a captcha, but only if it's a https request.
+        if self.should_mount_adapter(url):
+            self.mount_adapter()
+
         resp = super(CloudflareScraper, self).request(method, url, *args, **kwargs)
 
         # Check if Cloudflare captcha challenge is presented
@@ -107,7 +132,19 @@ class CloudflareScraper(Session):
         if self.is_cloudflare_iuam_challenge(resp):
             resp = self.solve_cf_challenge(resp, **kwargs)
 
+        # Unmount the adapter if Cloudflare has accepted the challenge solution
+        # and has sent the cf_clearance cookie.
+        if self.cloudflare_is_bypassed(url, resp):
+            self.unmount_adapter()
+
         return resp
+
+    def cloudflare_is_bypassed(self, url, resp=None):
+        domain = urlparse(url).netloc
+        return (
+            self.cookies.get("cf_clearance", None, domain=domain) or
+                (resp and resp.cookies.get("cf_clearance", None, domain=domain))
+        )
 
     def handle_captcha_challenge(self, resp, url):
         error = (
@@ -271,6 +308,30 @@ class CloudflareScraper(Session):
             )
 
         return result, delay
+
+    def should_mount_adapter(self, url=None):
+        if self.cloudflare_is_bypassed(url):
+            return False
+
+        if url and urlparse(url).scheme != "https":
+            return False
+
+        return True
+
+    def mount_adapter(self):
+        adapter = self.get_adapter(CaptchaProvokingCiphersRemover.url)
+
+        if not isinstance(adapter, CaptchaProvokingCiphersRemover):
+            self.mount(CaptchaProvokingCiphersRemover.url, CloudflareScraper.captcha_adapter)
+
+    def unmount_adapter(self):
+        adapter = self.get_adapter(CaptchaProvokingCiphersRemover.url)
+
+        if isinstance(adapter, CaptchaProvokingCiphersRemover):
+            del self.adapters[CaptchaProvokingCiphersRemover.url]
+
+            # Remount the original HTTPAdapter
+            self.mount(CaptchaProvokingCiphersRemover.url, HTTPAdapter())
 
     @classmethod
     def create_scraper(cls, sess=None, **kwargs):
