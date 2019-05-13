@@ -79,9 +79,6 @@ class CloudflareCaptchaError(CloudflareError):
 
 
 class CloudflareScraper(Session):
-    # AES128-SHA ciphers seem to provoke a cloudflare challenge captcha.
-    captcha_adapter = CaptchaProvokingCiphersRemover()
-
     def __init__(self, *args, **kwargs):
         self.delay = kwargs.pop("delay", None)
         # Use headers with a random User-Agent if no custom headers have been set
