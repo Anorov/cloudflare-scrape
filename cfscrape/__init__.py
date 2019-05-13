@@ -95,6 +95,9 @@ class CloudflareScraper(Session):
         # Define headers to force using an OrderedDict and preserve header order
         self.headers = headers
 
+        # AES128-SHA ciphers seem to provoke a cloudflare challenge captcha.
+        self.captcha_adapter = CaptchaProvokingCiphersRemover()
+
     @staticmethod
     def is_cloudflare_iuam_challenge(resp):
         return (
@@ -318,7 +321,7 @@ class CloudflareScraper(Session):
         adapter = self.get_adapter(CaptchaProvokingCiphersRemover.url)
 
         if not isinstance(adapter, CaptchaProvokingCiphersRemover):
-            self.mount(CaptchaProvokingCiphersRemover.url, CloudflareScraper.captcha_adapter)
+            self.mount(CaptchaProvokingCiphersRemover.url, self.captcha_adapter)
 
     def unmount_adapter(self):
         adapter = self.get_adapter(CaptchaProvokingCiphersRemover.url)
