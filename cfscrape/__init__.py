@@ -15,7 +15,7 @@ from requests.adapters import HTTPAdapter
 from requests.compat import urlparse, urlunparse
 from requests.exceptions import RequestException
 
-from requests.urllib3.util.ssl_ import create_urllib3_context
+from urllib3.util.ssl_ import create_urllib3_context
 
 __version__ = "2.0.3"
 
