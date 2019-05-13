@@ -61,15 +61,11 @@ https://github.com/Anorov/cloudflare-scrape/issues\
 class CaptchaProvokingCiphersRemover(HTTPAdapter):
     url = "https://"
 
-    def __init__(self, ciphers_to_remove=[], *args, **kwargs):
-        self.ciphers_to_remove = isinstance(ciphers_to_remove, (list, tuple)) and ciphers_to_remove or [ciphers_to_remove]
-
-        super(CaptchaProvokingCiphersRemover, self).__init__(*args, **kwargs)
-
     def init_poolmanager(self, *args, **kwargs):
         context = create_urllib3_context()
+        problematic_ciphers = ("AES128-SHA",)
 
-        ciphers = [cipher['name'] for cipher in context.get_ciphers() if cipher['name'] not in self.ciphers_to_remove]
+        ciphers = [cipher['name'] for cipher in context.get_ciphers() if cipher['name'] in problematic_ciphers]
         context.set_ciphers(":".join(ciphers))
 
         super(CaptchaProvokingCiphersRemover, self).init_poolmanager(*args, ssl_context=context, **kwargs)
@@ -84,7 +80,7 @@ class CloudflareCaptchaError(CloudflareError):
 
 class CloudflareScraper(Session):
     # AES128-SHA ciphers seem to provoke a cloudflare challenge captcha.
-    captcha_adapter = CaptchaProvokingCiphersRemover(["AES128-SHA"])
+    captcha_adapter = CaptchaProvokingCiphersRemover()
 
     def __init__(self, *args, **kwargs):
         self.delay = kwargs.pop("delay", None)
