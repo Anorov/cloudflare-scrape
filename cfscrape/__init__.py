@@ -15,7 +15,7 @@ from requests.adapters import HTTPAdapter
 from requests.compat import urlparse, urlunparse
 from requests.exceptions import RequestException
 
-from urllib3.util.ssl_ import create_urllib3_context
+from urllib3.util.ssl_ import create_urllib3_context, DEFAULT_CIPHERS
 
 __version__ = "2.0.3"
 
@@ -58,17 +58,22 @@ If increasing the delay does not help, please open a GitHub issue at \
 https://github.com/Anorov/cloudflare-scrape/issues\
 """
 
-class CaptchaProvokingCiphersRemover(HTTPAdapter):
+class ExcludeCaptchaProvokingCiphersAdapter(HTTPAdapter):
     url = "https://"
 
-    def init_poolmanager(self, *args, **kwargs):
-        context = create_urllib3_context()
-        problematic_ciphers = ("AES128-SHA",)
+    def enable(self):
+        setattr(self, "is_enabled", True)
 
-        ciphers = [cipher["name"] for cipher in context.get_ciphers() if cipher["name"] in problematic_ciphers]
-        context.set_ciphers(":".join(ciphers))
+    def disable(self):
+        setattr(self, "is_enabled", False)
 
-        super(CaptchaProvokingCiphersRemover, self).init_poolmanager(*args, ssl_context=context, **kwargs)
+    def get_connection(self, url, proxies=None):
+        conn = super(ExcludeCaptchaProvokingCiphersAdapter, self).get_connection(url, proxies)
+        # Only if enable() has been explicitly invoked, the ciphers are updated.
+        if getattr(self, "is_enabled", False):
+            conn.conn_kw['ssl_context'] = create_urllib3_context(ciphers=DEFAULT_CIPHERS + "!ECDHE+SHA")
+
+        return conn
 
 class CloudflareError(RequestException):
     pass
@@ -92,8 +97,9 @@ class CloudflareScraper(Session):
         # Define headers to force using an OrderedDict and preserve header order
         self.headers = headers
 
-        # AES128-SHA ciphers seem to provoke a cloudflare challenge captcha.
-        self.captcha_adapter = CaptchaProvokingCiphersRemover()
+        # Install the captcha adapter. Only if explicitly enabled it modifies
+        # the ssl context.
+        self.mount(ExcludeCaptchaProvokingCiphersAdapter.url, ExcludeCaptchaProvokingCiphersAdapter())
 
     @staticmethod
     def is_cloudflare_iuam_challenge(resp):
@@ -115,8 +121,8 @@ class CloudflareScraper(Session):
     def request(self, method, url, *args, **kwargs):
         # Mount the adapter responsible for removing ciphers which might provoke
         # a captcha, but only if it's a https request.
-        if self.should_mount_adapter(url):
-            self.mount_adapter()
+        if self.should_enable_adapter(url):
+            self.enable_adapter()
 
         resp = super(CloudflareScraper, self).request(method, url, *args, **kwargs)
 
@@ -131,7 +137,7 @@ class CloudflareScraper(Session):
         # Unmount the adapter if Cloudflare has accepted the challenge solution
         # and has sent the cf_clearance cookie.
         if self.cloudflare_is_bypassed(url, resp):
-            self.unmount_adapter()
+            self.disable_adapter()
 
         return resp
 
@@ -305,7 +311,7 @@ class CloudflareScraper(Session):
 
         return result, delay
 
-    def should_mount_adapter(self, url=None):
+    def should_enable_adapter(self, url=None):
         if self.cloudflare_is_bypassed(url):
             return False
 
@@ -314,20 +320,17 @@ class CloudflareScraper(Session):
 
         return True
 
-    def mount_adapter(self):
-        adapter = self.get_adapter(CaptchaProvokingCiphersRemover.url)
+    def enable_adapter(self):
+        adapter = self.get_adapter(ExcludeCaptchaProvokingCiphersAdapter.url)
 
-        if not isinstance(adapter, CaptchaProvokingCiphersRemover):
-            self.mount(CaptchaProvokingCiphersRemover.url, self.captcha_adapter)
+        if isinstance(adapter, ExcludeCaptchaProvokingCiphersAdapter):
+            adapter.enable()
 
-    def unmount_adapter(self):
-        adapter = self.get_adapter(CaptchaProvokingCiphersRemover.url)
+    def disable_adapter(self):
+        adapter = self.get_adapter(ExcludeCaptchaProvokingCiphersAdapter.url)
 
-        if isinstance(adapter, CaptchaProvokingCiphersRemover):
-            del self.adapters[CaptchaProvokingCiphersRemover.url]
-
-            # Remount the original HTTPAdapter
-            self.mount(CaptchaProvokingCiphersRemover.url, HTTPAdapter())
+        if isinstance(adapter, ExcludeCaptchaProvokingCiphersAdapter):
+            adapter.disable()
 
     @classmethod
     def create_scraper(cls, sess=None, **kwargs):
