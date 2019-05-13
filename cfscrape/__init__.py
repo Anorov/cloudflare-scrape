@@ -136,10 +136,10 @@ class CloudflareScraper(Session):
         return resp
 
     def cloudflare_is_bypassed(self, url, resp=None):
-        domain = urlparse(url).netloc
+        cookie_domain = ".{}".format(urlparse(url).netloc)
         return (
-            self.cookies.get("cf_clearance", None, domain=domain) or
-                (resp and resp.cookies.get("cf_clearance", None, domain=domain))
+            self.cookies.get("cf_clearance", None, domain=cookie_domain) or
+                (resp and resp.cookies.get("cf_clearance", None, domain=cookie_domain))
         )
 
     def handle_captcha_challenge(self, resp, url):
