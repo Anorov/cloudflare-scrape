@@ -71,7 +71,7 @@ class ExcludeCaptchaProvokingCiphersAdapter(HTTPAdapter):
         conn = super(ExcludeCaptchaProvokingCiphersAdapter, self).get_connection(url, proxies)
         # Only if enable() has been explicitly invoked, the ciphers are updated.
         if getattr(self, "is_enabled", False):
-            conn.conn_kw['ssl_context'] = create_urllib3_context(ciphers=DEFAULT_CIPHERS + ":!ECDHE+SHA")
+            conn.conn_kw['ssl_context'] = create_urllib3_context(ciphers=DEFAULT_CIPHERS + ":!ECDHE+SHA:!AES128-SHA")
 
         return conn
 
