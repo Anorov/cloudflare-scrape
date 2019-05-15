@@ -11,9 +11,11 @@ from base64 import b64encode
 from collections import OrderedDict
 
 from requests.sessions import Session
+from requests.adapters import HTTPAdapter
 from requests.compat import urlparse, urlunparse
 from requests.exceptions import RequestException
 
+from urllib3.util.ssl_ import create_urllib3_context, DEFAULT_CIPHERS
 
 __version__ = "2.0.3"
 
@@ -56,6 +58,22 @@ If increasing the delay does not help, please open a GitHub issue at \
 https://github.com/Anorov/cloudflare-scrape/issues\
 """
 
+class ExcludeCaptchaProvokingCiphersAdapter(HTTPAdapter):
+    url = "https://"
+
+    def enable(self):
+        setattr(self, "is_enabled", True)
+
+    def disable(self):
+        setattr(self, "is_enabled", False)
+
+    def get_connection(self, url, proxies=None):
+        conn = super(ExcludeCaptchaProvokingCiphersAdapter, self).get_connection(url, proxies)
+        # Only if enable() has been explicitly invoked, the ciphers are updated.
+        if getattr(self, "is_enabled", False):
+            conn.conn_kw['ssl_context'] = create_urllib3_context(ciphers=DEFAULT_CIPHERS + ":!ECDHE+SHA:!AES128-SHA")
+
+        return conn
 
 class CloudflareError(RequestException):
     pass
@@ -79,6 +97,10 @@ class CloudflareScraper(Session):
         # Define headers to force using an OrderedDict and preserve header order
         self.headers = headers
 
+        # Install the captcha adapter. Only if explicitly enabled it modifies
+        # the ssl context.
+        self.mount(ExcludeCaptchaProvokingCiphersAdapter.url, ExcludeCaptchaProvokingCiphersAdapter())
+
     @staticmethod
     def is_cloudflare_iuam_challenge(resp):
         return (
@@ -97,6 +119,11 @@ class CloudflareScraper(Session):
         )
 
     def request(self, method, url, *args, **kwargs):
+        # Mount the adapter responsible for removing ciphers which might provoke
+        # a captcha, but only if it's a https request.
+        if self.should_enable_adapter(url):
+            self.enable_adapter()
+
         resp = super(CloudflareScraper, self).request(method, url, *args, **kwargs)
 
         # Check if Cloudflare captcha challenge is presented
@@ -107,7 +134,19 @@ class CloudflareScraper(Session):
         if self.is_cloudflare_iuam_challenge(resp):
             resp = self.solve_cf_challenge(resp, **kwargs)
 
+        # Unmount the adapter if Cloudflare has accepted the challenge solution
+        # and has sent the cf_clearance cookie.
+        if self.cloudflare_is_bypassed(url, resp):
+            self.disable_adapter()
+
         return resp
+
+    def cloudflare_is_bypassed(self, url, resp=None):
+        cookie_domain = ".{}".format(urlparse(url).netloc)
+        return (
+            self.cookies.get("cf_clearance", None, domain=cookie_domain) or
+                (resp and resp.cookies.get("cf_clearance", None, domain=cookie_domain))
+        )
 
     def handle_captcha_challenge(self, resp, url):
         error = (
@@ -271,6 +310,27 @@ class CloudflareScraper(Session):
             )
 
         return result, delay
+
+    def should_enable_adapter(self, url=None):
+        if self.cloudflare_is_bypassed(url):
+            return False
+
+        if url and urlparse(url).scheme != "https":
+            return False
+
+        return True
+
+    def enable_adapter(self):
+        adapter = self.get_adapter(ExcludeCaptchaProvokingCiphersAdapter.url)
+
+        if isinstance(adapter, ExcludeCaptchaProvokingCiphersAdapter):
+            adapter.enable()
+
+    def disable_adapter(self):
+        adapter = self.get_adapter(ExcludeCaptchaProvokingCiphersAdapter.url)
+
+        if isinstance(adapter, ExcludeCaptchaProvokingCiphersAdapter):
+            adapter.disable()
 
     @classmethod
     def create_scraper(cls, sess=None, **kwargs):
