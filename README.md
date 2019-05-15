@@ -29,9 +29,9 @@ Alternatively, clone this repository and run `python setup.py install`.
 Node.js dependency
 ============
 
-[Node.js](https://nodejs.org/) is required to interpret Cloudflare's obfuscated JavaScript challenge.
+A currently supported version of [Node.js](https://nodejs.org/) is required to interpret Cloudflare's obfuscated JavaScript challenge. Releases older than 4.5 are definitely broken.
 
-Your machine may already have Node installed (check with `node -v`). If not, you can install it with `apt-get install nodejs` on Ubuntu and Debian and `brew install node` on macOS. Otherwise, you can get it from [Node's download page](https://nodejs.org/en/download/) or [their package manager installation page](https://nodejs.org/en/download/package-manager/).
+Your machine may already have Node installed (check with `node -v`). If not, you can install it with `apt-get install nodejs` on Ubuntu >= 18.04 and Debian >= 9 and `brew install node` on macOS. Otherwise, you can get it from [Node's download page](https://nodejs.org/en/download/) or [their package manager installation page](https://nodejs.org/en/download/package-manager/).
 
 
 Updates
