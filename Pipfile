@@ -1,0 +1,25 @@
+[[source]]
+url = "https://pypi.org/simple/"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+requests = "*"
+
+[dev-packages]
+pytest = "*"
+# more_itertools is added to resolve a CI related issue with Pipenv + pytest
+more_itertools = { version = ">=4.0.0", markers = "python_version >= '2.7'" }
+pytest-cov = "*"
+pytest-xdist = "*"
+pytest-forked = "*"
+pytest-testmon = "*"
+pytest-watch = "*"
+pytest-timeout = "*"
+responses = "*"
+sure = "*"
+"flake8" = "*"
+"autopep8" = "*"
+tox = "*"
+coverage = "*"
+coveralls = "*"

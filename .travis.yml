@@ -1,0 +1,24 @@
+language: python
+
+dist: trusty
+sudo: false
+
+matrix:
+    include:
+        - python: '2.7'
+        - python: '3.4'
+        - python: '3.5'
+        - python: '3.6'
+        - python: '3.7'
+          dist: xenial
+          sudo: true
+
+cache: pip
+
+install:
+  - node -e "console.log(process.versions);"
+  - make
+
+script: make ci
+
+after_success: make coverage
