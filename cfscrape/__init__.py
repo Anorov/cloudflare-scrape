@@ -17,7 +17,7 @@ from requests.exceptions import RequestException
 
 from urllib3.util.ssl_ import create_urllib3_context, DEFAULT_CIPHERS
 
-__version__ = "2.0.3"
+__version__ = "2.0.4"
 
 USER_AGENTS_PATH = os.path.join(os.path.dirname(__file__), "user_agents.json")
 
