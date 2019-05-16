@@ -1,0 +1,4 @@
+[run]
+source = cfscrape
+omit =
+    *test*

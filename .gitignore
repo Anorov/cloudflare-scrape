@@ -22,3 +22,19 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Tests / Coverage
+report.xml
+coverage.xml
+.coverage
+.tox/
+.testmondata
+
+# IDE
+.idea/
+
+# Prevent unintended commits
+.env
+
+# Temp files
+*.swp
