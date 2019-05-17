@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import responses
-import pytest
 import re
 
 from requests.compat import urlencode
