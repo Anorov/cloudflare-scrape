@@ -27,7 +27,7 @@ class TestCloudflareAdapter:
         # If pyOpenSSL is injected into urllib3, this should still work.
         try:
             assert isinstance(ssl_context, urllib3.contrib.pyopenssl.PyOpenSSLContext)
-        except:
+        except Exception:
             assert isinstance(ssl_context, ssl.SSLContext)
 
         adapter.close()
