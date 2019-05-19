@@ -28,7 +28,10 @@ format:
 
 coverage:
 	pipenv run py.test --cov-config .coveragerc --verbose --cov-report term --cov-report xml --cov=cfscrape tests
-	pipenv run coveralls
+        ifdef CI
+	    # This should only run on CI, specifically Travis
+	    pipenv run coveralls
+        endif
 
 publish:
 	pip install 'twine>=1.5.0'
