@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import re
 import ssl
 import subprocess
 import copy
 import time
 
-from base64 import b64encode
 from collections import OrderedDict
 
 from requests.sessions import Session
@@ -15,6 +13,8 @@ from requests.compat import urlparse, urlunparse
 
 from .adapters import CloudflareAdapter
 from .exceptions import CloudflareCaptchaError
+from .challenges import CloudflareChallenge
+
 from .utils import DEFAULT_HEADERS, DEFAULT_USER_AGENT, BUG_REPORT
 
 
@@ -64,13 +64,6 @@ class CloudflareScraper(Session):
 
         return resp
 
-    def cloudflare_is_bypassed(self, url, resp=None):
-        cookie_domain = ".{}".format(urlparse(url).netloc)
-        return (
-            self.cookies.get("cf_clearance", None, domain=cookie_domain) or
-            (resp and resp.cookies.get("cf_clearance", None, domain=cookie_domain))
-        )
-
     def handle_captcha_challenge(self, resp, url):
         error = (
             "Cloudflare captcha challenge presented for %s (cfscrape cannot solve captchas)"
@@ -84,7 +77,8 @@ class CloudflareScraper(Session):
     def solve_cf_challenge(self, resp, **original_kwargs):
         start_time = time.time()
 
-        body = resp.text
+        iuam_challenge = CloudflareChallenge(resp, delay=self.delay)
+
         parsed_url = urlparse(resp.url)
         domain = parsed_url.netloc
         submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed_url.scheme, domain)
@@ -94,27 +88,9 @@ class CloudflareScraper(Session):
         headers = cloudflare_kwargs.setdefault("headers", {})
         headers["Referer"] = resp.url
 
-        try:
-            params = cloudflare_kwargs["params"] = OrderedDict(
-                re.findall(r'name="(s|jschl_vc|pass)"(?: [^<>]*)? value="(.+?)"', body)
-            )
-
-            for k in ("jschl_vc", "pass"):
-                if k not in params:
-                    raise ValueError("%s is missing from challenge form" % k)
-        except Exception as e:
-            # Something is wrong with the page.
-            # This may indicate Cloudflare has changed their anti-bot
-            # technique. If you see this and are running the latest version,
-            # please open a GitHub issue so I can update the code accordingly.
-            raise ValueError(
-                "Unable to parse Cloudflare anti-bot IUAM page: %s %s"
-                % (e.message, BUG_REPORT)
-            )
-
-        # Solve the Javascript challenge
-        answer, delay = self.solve_challenge(body, domain)
-        params["jschl_answer"] = answer
+        params = iuam_challenge.form
+        params["jschl_answer"] = self.eval_challenge(iuam_challenge)
+        cloudflare_kwargs["params"] = params
 
         # Requests transforms any request into a GET after a redirect,
         # so the redirect has to be handled manually here to allow for
@@ -123,7 +99,7 @@ class CloudflareScraper(Session):
         cloudflare_kwargs["allow_redirects"] = False
 
         # Cloudflare requires a delay before solving the challenge
-        time.sleep(max(delay - (time.time() - start_time), 0))
+        time.sleep(max(iuam_challenge.delay - (time.time() - start_time), 0))
 
         # Send the challenge response and handle the redirect manually
         redirect = self.request(method, submit_url, **cloudflare_kwargs)
@@ -143,53 +119,25 @@ class CloudflareScraper(Session):
             return self.request(method, redirect_url, **original_kwargs)
         return self.request(method, redirect.headers["Location"], **original_kwargs)
 
-    def solve_challenge(self, body, domain):
+    @staticmethod
+    def eval_js(js):
         try:
-            challenge, ms = re.search(
-                r"setTimeout\(function\(\){\s*(var "
-                r"s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value\s*=.+?)\r?\n"
-                r"(?:[^{<>]*},\s*(\d{4,}))?",
-                body,
-            ).groups()
-
-            # The challenge requires `document.getElementById` to get this content.
-            # Future proofing would require escaping newlines and double quotes
-            innerHTML = re.search(r"<div(?: [^<>]*)? id=\"cf-dn.*?\">([^<>]*)", body)
-            innerHTML = innerHTML.group(1) if innerHTML else ""
-
-            # Prefix the challenge with a fake document object.
-            # Interpolate the domain, div contents, and JS challenge.
-            # The `a.value` to be returned is tacked onto the end.
-            challenge = """
-                var document = {
-                    createElement: function () {
-                      return { firstChild: { href: "http://%s/" } }
-                    },
-                    getElementById: function () {
-                      return {"innerHTML": "%s"};
-                    }
-                  };
-
-                %s; a.value
-            """ % (
-                domain,
-                innerHTML,
-                challenge,
+            return subprocess.check_output(
+                ["node", "-e", js], stdin=subprocess.PIPE, stderr=subprocess.PIPE
             )
-            # Encode the challenge for security while preserving quotes and spacing.
-            challenge = b64encode(challenge.encode("utf-8")).decode("ascii")
-            # Use the provided delay, parsed delay, or default to 8 secs
-            delay = self.delay or (float(ms) / float(1000) if ms else 8)
-        except Exception:
-            raise ValueError(
-                "Unable to identify Cloudflare IUAM Javascript on website. %s"
-                % BUG_REPORT
-            )
+        except OSError as e:
+            if e.errno == 2:
+                raise EnvironmentError(
+                    "Missing Node.js runtime. Node is required and must be in the PATH (check with `node -v`). Your Node binary may be called `nodejs` rather than `node`, in which case you may need to run `apt-get install nodejs-legacy` on some Debian-based systems. (Please read the cfscrape"
+                    " README's Dependencies section: https://github.com/Anorov/cloudflare-scrape#dependencies."
+                )
+            raise
 
+    @classmethod
+    def eval_challenge(cls, iuam_challenge):
         # Use vm.runInNewContext to safely evaluate code
         # The sandboxed code cannot use the Node.js standard library
-        js = (
-            """\
+        js = """\
             var atob = Object.setPrototypeOf(function (str) {\
                 try {\
                     return Buffer.from("" + str, "base64").toString("binary");\
@@ -207,20 +155,11 @@ class CloudflareScraper(Session):
                 require("vm").runInNewContext(challenge, context, options)\
             ));\
         """
-            % challenge
-        )
+
+        js = js % iuam_challenge.to_base64()
 
         try:
-            result = subprocess.check_output(
-                ["node", "-e", js], stdin=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-        except OSError as e:
-            if e.errno == 2:
-                raise EnvironmentError(
-                    "Missing Node.js runtime. Node is required and must be in the PATH (check with `node -v`). Your Node binary may be called `nodejs` rather than `node`, in which case you may need to run `apt-get install nodejs-legacy` on some Debian-based systems. (Please read the cfscrape"
-                    " README's Dependencies section: https://github.com/Anorov/cloudflare-scrape#dependencies."
-                )
-            raise
+            result = cls.eval_js(js)
         except Exception:
             logging.error("Error executing Cloudflare IUAM Javascript. %s" % BUG_REPORT)
             raise
@@ -232,7 +171,7 @@ class CloudflareScraper(Session):
                 "Cloudflare IUAM challenge returned unexpected answer. %s" % BUG_REPORT
             )
 
-        return result, delay
+        return result
 
     @classmethod
     def create_scraper(cls, sess=None, **kwargs):
