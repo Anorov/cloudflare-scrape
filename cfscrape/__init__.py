@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import json
 import logging
 import random
 import re
@@ -19,14 +18,11 @@ from requests.exceptions import RequestException
 
 from urllib3.util.ssl_ import create_urllib3_context, DEFAULT_CIPHERS
 
-__version__ = "2.0.5"
+from .user_agents import USER_AGENTS
 
-USER_AGENTS_PATH = os.path.join(os.path.dirname(__file__), "user_agents.json")
+__version__ = "2.0.6"
 
-with open(USER_AGENTS_PATH) as f:
-    user_agents = json.load(f)
-
-DEFAULT_USER_AGENT = random.choice(user_agents)
+DEFAULT_USER_AGENT = random.choice(USER_AGENTS)
 
 DEFAULT_HEADERS = OrderedDict(
     (
