@@ -26,5 +26,5 @@ setup(
     url="https://github.com/Anorov/cloudflare-scrape",
     keywords=["cloudflare", "scraping"],
     include_package_data=True,
-    install_requires=["requests >= 2.0.0"],
+    install_requires=["requests >= 2.6.1"],
 )
