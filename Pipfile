@@ -5,6 +5,8 @@ name = "pypi"
 
 [packages]
 requests = "*"
+js2py = "*"
+
 
 [dev-packages]
 pytest = "*"

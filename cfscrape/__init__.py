@@ -11,6 +11,7 @@ import os
 from base64 import b64encode
 from collections import OrderedDict
 
+import js2py
 from requests.sessions import Session
 from requests.adapters import HTTPAdapter
 from requests.compat import urlparse, urlunparse
@@ -276,9 +277,12 @@ class CloudflareScraper(Session):
         )
 
         try:
-            result = subprocess.check_output(
-                ["node", "-e", js], stdin=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+            # result = subprocess.check_output(
+            #     ["node", "-e", js], stdin=subprocess.PIPE, stderr=subprocess.PIPE
+            # )
+            js_function = js2py.eval_js(js)
+
+            result = js_function()
         except OSError as e:
             if e.errno == 2:
                 raise EnvironmentError(
