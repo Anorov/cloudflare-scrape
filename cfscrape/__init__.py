@@ -57,7 +57,7 @@ https://github.com/Anorov/cloudflare-scrape/issues\
 """
 
 # Remove a few problematic TLSv1.0 ciphers from the defaults
-DEFAULT_CIPHERS += ":!ECDHE+SHA:!AES128-SHA"
+DEFAULT_CIPHERS += ":!ECDHE+SHA:!AES128-SHA:!AESCCM:!DHE:!ARIA"
 
 
 class CloudflareAdapter(HTTPAdapter):
