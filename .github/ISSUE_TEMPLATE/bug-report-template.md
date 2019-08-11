@@ -7,9 +7,26 @@ assignees: ''
 
 ---
 
-Before creating an issue, first upgrade cfscrape with `pip install -U cfscrape` and see if you're still experiencing the problem.
+Before creating an issue, first upgrade cfscrape with `pip install -U cfscrape` and see if you're still experiencing the problem. Please also confirm your Node version (`node --version` or `--nodejs version`) is version 10 or higher.
 
-## Version number
+Make sure the website you're having issues with is actually using anti-bot protection by Cloudflare and not a competitor like Imperva Incapsula or Sucuri. And if you're using an anonymizing proxy, a VPN, or Tor, Cloudflare often flags those IPs and may block you or present you with a captcha as a result.
+
+Please **confirm the following statements and check the boxes** before creating an issue:
+
+- [ ] I've upgraded cfscrape with `pip install -U cfscrape`
+- [ ] I'm using Node version 10 or higher
+- [ ] The site protection I'm having issues with is from Cloudflare
+- [ ] I'm not using Tor, a VPN, or an anonymizing proxy
+
+## Python version number
+
+Run `python --version` and paste the output below:
+
+```
+
+```
+
+## cfscrape version number
 
 Run `pip show cfscrape` and paste the output below:
 
@@ -17,7 +34,7 @@ Run `pip show cfscrape` and paste the output below:
 
 ```
 
-## Code snippet experiencing the issue
+## Code snippet involved with the issue
 
 ```
 
