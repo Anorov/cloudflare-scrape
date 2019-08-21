@@ -226,6 +226,8 @@ class CloudflareScraper(Session):
             # Interpolate the domain, div contents, and JS challenge.
             # The `a.value` to be returned is tacked onto the end.
             challenge = """
+                "use strict";
+
                 var document = {
                     createElement: function () {
                       return { firstChild: { href: "http://%s/" } }
@@ -255,6 +257,11 @@ class CloudflareScraper(Session):
         # The sandboxed code cannot use the Node.js standard library
         js = (
             """\
+            try { Buffer.from("", "base64"); }\
+            catch (e) {\
+                throw new Error("Outdated Node.js detected: " +\
+                    process.version + ", minimum supported version is 4.5");\
+            }\
             var atob = Object.setPrototypeOf(function (str) {\
                 try {\
                     return Buffer.from("" + str, "base64").toString("binary");\
@@ -276,9 +283,14 @@ class CloudflareScraper(Session):
         )
 
         try:
-            result = subprocess.check_output(
-                ["node", "-e", js], stdin=subprocess.PIPE, stderr=subprocess.PIPE
+            node = subprocess.Popen(
+                ["node", "-e", js], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines=True
             )
+            result, stderr = node.communicate()
+            if node.returncode != 0:
+                stderr = "Node.js Exception:\n%s" % (stderr or None)
+                raise subprocess.CalledProcessError(node.returncode, "node -e ...", stderr)
         except OSError as e:
             if e.errno == 2:
                 raise EnvironmentError(
@@ -287,7 +299,9 @@ class CloudflareScraper(Session):
                 )
             raise
         except Exception:
-            logging.error("Error executing Cloudflare IUAM Javascript. %s" % BUG_REPORT)
+            logging.error(stderr)
+            if not re.search(r"[^\"]Outdated Node.js detected", stderr):
+                logging.error("Error executing Cloudflare IUAM Javascript. %s" % BUG_REPORT)
             raise
 
         try:
