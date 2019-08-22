@@ -29,7 +29,7 @@ install:
           Install-Product node $env:cfscrape_node
         }
       }
-  - 'set PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%'
+  - 'set PATH=%PYTHON%;%PYTHON%/Scripts;%PATH%'
   - 'python --version'
   - 'node -p process.versions'
   - 'pip -V'

@@ -14,6 +14,13 @@ matrix:
           sudo: true
         - env: cfscrape_node='4.5'
         - env: cfscrape_node='node'
+        - os: osx
+          language: node_js
+          node_js: node
+          cache:
+            directories:
+              - $HOME/Library/Caches/Homebrew
+              - /usr/local/Homebrew
 
 cache: pip
 

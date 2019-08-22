@@ -10,6 +10,8 @@ requests = "*"
 pytest = "*"
 # more_itertools is added to resolve a CI related issue with Pipenv + pytest
 more_itertools = { version = ">=4.0.0", markers = "python_version >= '2.7'" }
+# mock is added to resolve a CI related issue with Pipenv + pytest
+mock = "*"
 pytest-cov = "*"
 pytest-xdist = "*"
 pytest-forked = "*"
