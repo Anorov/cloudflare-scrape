@@ -4,16 +4,20 @@ import pytest
 import cfscrape
 import requests
 import re
+import os
 import ssl
+import responses
+import subprocess
 
 from sure import expect
 from . import challenge_responses, recaptcha_responses, requested_page, url, \
-    cloudflare_cookies, server_error_response
+    cloudflare_cookies, DefaultResponse, ChallengeResponse, fixtures, \
+    cfscrape_kwargs
 
 
 class TestCloudflareScraper:
 
-    @challenge_responses(filename='js_challenge_10_04_2019.html', jschl_answer='18.8766915031')
+    @challenge_responses(filename='js_challenge_10_04_2019.html', jschl_answer='18.8766915031', redirect_to=url)
     def test_js_challenge_10_04_2019(self, **kwargs):
         scraper = cfscrape.CloudflareScraper(**kwargs)
         expect(scraper.get(url).content).to.equal(requested_page)
@@ -60,6 +64,150 @@ class TestCloudflareScraper:
                 .should.have.raised(cfscrape.CloudflareCaptchaError, message)
         finally:
             ssl.OPENSSL_VERSION_NUMBER = v
+
+    @responses.activate
+    def test_js_challenge_unable_to_identify(self):
+        body = fixtures('js_challenge_10_04_2019.html')
+        body = body.replace(b'setTimeout', b'')
+
+        responses.add(ChallengeResponse(url=url, body=body))
+
+        scraper = cfscrape.create_scraper(**cfscrape_kwargs)
+        message = re.compile(r'Unable to identify Cloudflare IUAM Javascript')
+        scraper.get.when.called_with(url) \
+            .should.have.raised(ValueError, message)
+
+    @responses.activate
+    def test_js_challenge_unexpected_answer(self):
+        body = fixtures('js_challenge_10_04_2019.html')
+        body = body.replace(b'\'; 121\'', b'a.value = "foobar"')
+
+        responses.add(ChallengeResponse(url=url, body=body))
+
+        scraper = cfscrape.create_scraper(**cfscrape_kwargs)
+        message = re.compile(r'Cloudflare IUAM challenge returned unexpected answer')
+        scraper.get.when.called_with(url) \
+            .should.have.raised(ValueError, message)
+
+    @responses.activate
+    def test_js_challenge_missing_pass(self):
+        body = fixtures('js_challenge_10_04_2019.html')
+        body = body.replace(b'name="pass"', b'')
+
+        responses.add(ChallengeResponse(url=url, body=body))
+
+        scraper = cfscrape.create_scraper(**cfscrape_kwargs)
+        message = re.compile(r'Unable to parse .* pass is missing from challenge form')
+        scraper.get.when.called_with(url) \
+            .should.have.raised(ValueError, message)
+
+    def test_js_challenge_subprocess_unknown_error(self, caplog):
+        def test(self, **kwargs):
+            __Popen = subprocess.Popen
+
+            # Temporarily disable this method to generate an exception
+            subprocess.Popen = None
+
+            try:
+                scraper = cfscrape.CloudflareScraper(**kwargs)
+                scraper.get.when.called_with(url) \
+                    .should.have.raised(TypeError)
+                caplog.text.should.match(re.compile(r'Error executing Cloudflare IUAM Javascript'))
+            finally:
+                subprocess.Popen = __Popen
+
+        challenge_responses(
+            filename='js_challenge_10_04_2019.html', jschl_answer='18.8766915031'
+        )(test)(self)
+
+    def test_js_challenge_subprocess_system_error(self, caplog):
+        def test(self, **kwargs):
+            __Popen = subprocess.Popen
+
+            # Temporarily Mock subprocess method to raise an OSError
+            def mock(*args, **kwargs):
+                raise OSError('System Error')
+
+            subprocess.Popen = mock
+
+            try:
+                scraper = cfscrape.CloudflareScraper(**kwargs)
+                scraper.get.when.called_with(url) \
+                    .should.have.raised(OSError, re.compile(r'System Error'))
+                caplog.text.should.equal('')
+            finally:
+                subprocess.Popen = __Popen
+
+        challenge_responses(
+            filename='js_challenge_10_04_2019.html', jschl_answer='18.8766915031'
+        )(test)(self)
+
+    def test_js_challenge_subprocess_non_zero(self, caplog):
+        def test(self, **kwargs):
+            __Popen = subprocess.Popen
+
+            # Temporarily Mock subprocess method to return non-zero exit code
+            def mock(*args, **kwargs):
+                def node(): pass
+                node.communicate = lambda: ('stdout', 'stderr')
+                node.returncode = 1
+                return node
+
+            subprocess.Popen = mock
+
+            try:
+                scraper = cfscrape.CloudflareScraper(**kwargs)
+                message = re.compile(r'non-zero exit status')
+                scraper.get.when.called_with(url) \
+                    .should.have.raised(subprocess.CalledProcessError, message)
+                caplog.text.should.match(re.compile(r'Error executing Cloudflare IUAM Javascript'))
+                caplog.text.should_not.match(re.compile(r'Outdated Node.js detected'))
+            finally:
+                subprocess.Popen = __Popen
+
+        challenge_responses(
+            filename='js_challenge_10_04_2019.html', jschl_answer='18.8766915031'
+        )(test)(self)
+
+    def test_js_challenge_outdated_node(self, caplog):
+        def test(self, **kwargs):
+            __Popen = subprocess.Popen
+
+            # Temporarily Mock subprocess method to return non-zero exit code
+            def mock(*args, **kwargs):
+                def node(): pass
+                node.communicate = lambda: ('stdout', 'Outdated Node.js detected')
+                node.returncode = 1
+                return node
+
+            subprocess.Popen = mock
+
+            try:
+                scraper = cfscrape.CloudflareScraper(**kwargs)
+                message = re.compile(r'non-zero exit status')
+                scraper.get.when.called_with(url) \
+                    .should.have.raised(subprocess.CalledProcessError, message)
+                caplog.text.should_not.match(re.compile(r'Error executing Cloudflare IUAM Javascript'))
+                caplog.text.should.match(re.compile(r'Outdated Node.js detected'))
+            finally:
+                subprocess.Popen = __Popen
+
+        challenge_responses(
+            filename='js_challenge_10_04_2019.html', jschl_answer='18.8766915031'
+        )(test)(self)
+
+    @challenge_responses(filename='js_challenge_10_04_2019.html', jschl_answer='18.8766915031')
+    def test_js_challenge_environment_error(self, **kwargs):
+        __path = os.environ['PATH']
+        # Temporarily unset PATH to hide Node.js
+        os.environ['PATH'] = ''
+        try:
+            scraper = cfscrape.CloudflareScraper(**kwargs)
+            message = re.compile(r'Missing Node.js runtime')
+            scraper.get.when.called_with(url) \
+                .should.have.raised(EnvironmentError, message)
+        finally:
+            os.environ['PATH'] = __path
 
     @challenge_responses(filename='js_challenge_10_04_2019.html', jschl_answer='18.8766915031')
     def test_get_cookie_string(self, **kwargs):
@@ -140,12 +288,16 @@ class TestCloudflareScraper:
         Test.get_tokens.when.called_with(url, **kwargs) \
             .should.have.raised(ValueError, message)
 
-    @server_error_response
-    def test_get_tokens_request_error(self, **kwargs):
+    @responses.activate
+    def test_get_tokens_request_error(self, caplog):
         # get_tokens doesn't accept the delay kwarg.
+        kwargs = cfscrape_kwargs.copy()
         kwargs.pop('delay', None)
+
+        responses.add(DefaultResponse(url=url, status=500))
         cfscrape.get_tokens.when.called_with(url, **kwargs) \
                 .should.have.raised(requests.HTTPError)
+        caplog.text.should.match(re.compile(r'Could not collect tokens'))
 
     @challenge_responses(filename='js_challenge_10_04_2019.html', jschl_answer='18.8766915031')
     def test_cloudflare_is_bypassed(self, **kwargs):
@@ -160,3 +312,16 @@ class TestCloudflareScraper:
 
         scraper = Test(**kwargs)
         scraper.cloudflare_is_bypassed(url).should.be.ok
+
+    def test_create_scraper_with_session(self):
+        session = requests.session()
+        session.headers = {'foo': 'bar'}
+        session.data = None
+
+        scraper = cfscrape.create_scraper(sess=session)
+        scraper.headers.should.equal(session.headers)
+        scraper.should_not.have.property('data')
+
+        session.data = {'bar': 'foo'}
+        scraper = cfscrape.create_scraper(sess=session)
+        scraper.data.should.equal(session.data)
