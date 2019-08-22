@@ -4,6 +4,10 @@ init:
 	pip install pipenv -U
 	pipenv install --dev
 
+requirements:
+	pipenv lock -r > requirements.txt
+	pipenv lock --dev -r > requirements-dev.txt
+
 test:
 	# This runs all of the tests, on both Python 2 and Python 3.
 	pipenv run tox --parallel auto
