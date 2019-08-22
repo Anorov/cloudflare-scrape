@@ -3,7 +3,7 @@
 import responses
 import re
 
-from requests.compat import urlencode
+from requests.compat import urlencode, Morsel
 from collections import OrderedDict
 from os import path
 from io import open
@@ -89,6 +89,21 @@ class DefaultResponse(responses.Response):
         super(DefaultResponse, self).__init__(**kwargs)
 
 
+class CaptchaResponse(ChallengeResponse):
+    """Simulates a reCAPTCHA(v2) response from Cloudflare
+
+    This would be the only response in current tests.
+
+    Kwargs:
+        Keyword arguments used to override the defaults.
+        The request will error if it doesn't match a defined response.
+    """
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault('status', 403)
+        super(CaptchaResponse, self).__init__(**kwargs)
+
+
 def fixtures(filename):
     """Read and cache a challenge fixture
 
@@ -126,14 +141,49 @@ def challenge_responses(filename, jschl_answer):
 
             responses.add(ChallengeResponse(url=url, body=fixtures(filename)))
 
-            def onRedirect(request):
+            def on_redirect(request):
                 # We don't register the last response unless the redirect occurs
                 responses.add(DefaultResponse(url=url, body=requested_page))
 
-            responses.add(RedirectResponse(url=submit_uri, callback=onRedirect))
+            responses.add(RedirectResponse(url=submit_uri, callback=on_redirect))
 
             return test(self, **cfscrape_kwargs)
-        # The following causes pytest to call the test wrapper once for each interpreter.
         return wrapper
 
     return challenge_responses_decorator
+
+
+def recaptcha_responses(filename):
+    def recaptcha_responses_decorator(test):
+        @responses.activate
+        def wrapper(self):
+            responses.add(CaptchaResponse(url=url, body=fixtures(filename)))
+
+            return test(self, **cfscrape_kwargs)
+        return wrapper
+
+    return recaptcha_responses_decorator
+
+
+def server_error_response(test):
+    @responses.activate
+    def wrapper(self):
+        responses.add(DefaultResponse(url=url, status=500))
+        return test(self, **cfscrape_kwargs)
+    return wrapper
+
+
+def cloudflare_cookies():
+    # Cloudflare cookie that should be set when challenge is presented
+    cfduid = Morsel()
+    cfduid.set('__cfduid', 'uid-1', 'uid-1')
+    cfduid['path'] = '/'
+    cfduid['domain'] = '.example-site.dev'
+
+    # Cloudflare cookie that should be set when challenge is bypassed
+    cf_clearance = Morsel()
+    cf_clearance.set('cf_clearance', 'uid-2', 'uid-2')
+    cf_clearance['path'] = '/'
+    cf_clearance['domain'] = '.example-site.dev'
+
+    return cfduid, cf_clearance
