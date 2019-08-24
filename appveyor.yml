@@ -15,10 +15,23 @@ environment:
     - PYTHON: 'C:/Python36-x64'
     - PYTHON: 'C:/Python37'
     - PYTHON: 'C:/Python37-x64'
+      cfscrape_node: '4.5'
+    - PYTHON: 'C:/Python37-x64'
+      cfscrape_node: 'node'
 
 install:
+  - ps: >-
+      If ($env:cfscrape_node -ne $null) {
+        If ($env:cfscrape_node -Match "node") {
+          Install-Product node ""
+        }
+        Else {
+          Install-Product node $env:cfscrape_node
+        }
+      }
+  - 'set PATH=%PYTHON%;%PYTHON%/Scripts;%PATH%'
   - 'python --version'
-  - 'node -e "console.log(process.versions);"'
+  - 'node -p process.versions'
   - 'pip -V'
   - 'pip install pipenv'
   - 'pipenv install --dev'

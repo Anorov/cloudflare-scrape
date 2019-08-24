@@ -52,7 +52,7 @@ class RedirectResponse(responses.CallbackResponse):
         The request will error if it doesn't match a defined response.
     """
 
-    def __init__(self, callback=lambda request: None, **kwargs):
+    def __init__(self, callback=lambda request: None, location=None, **kwargs):
         defaults = (('method', 'GET'),
                     ('status', 302),
                     ('headers', {'Location': '/'}),
@@ -61,6 +61,9 @@ class RedirectResponse(responses.CallbackResponse):
 
         for k, v in defaults:
             kwargs.setdefault(k, v)
+
+        if location:
+            kwargs['headers']['Location'] = location
 
         args = tuple(kwargs.pop(k) for k in ('status', 'headers', 'body'))
         kwargs['callback'] = lambda request: callback(request) or args
@@ -121,7 +124,7 @@ requested_page = fixtures('requested_page.html')
 
 # This fancy decorator wraps tests so the responses will be mocked.
 # It could be called directly e.g. challenge_responses(*args)(test_func) -> wrapper
-def challenge_responses(filename, jschl_answer):
+def challenge_responses(filename, jschl_answer, redirect_to='/'):
     # This function is called with the test_func and returns a new wrapper.
     def challenge_responses_decorator(test):
         @responses.activate
@@ -145,7 +148,9 @@ def challenge_responses(filename, jschl_answer):
                 # We don't register the last response unless the redirect occurs
                 responses.add(DefaultResponse(url=url, body=requested_page))
 
-            responses.add(RedirectResponse(url=submit_uri, callback=on_redirect))
+            responses.add(RedirectResponse(
+                url=submit_uri, callback=on_redirect, location=redirect_to
+            ))
 
             return test(self, **cfscrape_kwargs)
         return wrapper
@@ -163,14 +168,6 @@ def recaptcha_responses(filename):
         return wrapper
 
     return recaptcha_responses_decorator
-
-
-def server_error_response(test):
-    @responses.activate
-    def wrapper(self):
-        responses.add(DefaultResponse(url=url, status=500))
-        return test(self, **cfscrape_kwargs)
-    return wrapper
 
 
 def cloudflare_cookies():

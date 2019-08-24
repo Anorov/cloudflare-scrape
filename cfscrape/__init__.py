@@ -174,7 +174,7 @@ class CloudflareScraper(Session):
             # please open a GitHub issue so I can update the code accordingly.
             raise ValueError(
                 "Unable to parse Cloudflare anti-bot IUAM page: %s %s"
-                % (e.message, BUG_REPORT)
+                % (e, BUG_REPORT)
             )
 
         # Solve the Javascript challenge
@@ -282,6 +282,7 @@ class CloudflareScraper(Session):
             % challenge
         )
 
+        stderr = ''
         try:
             node = subprocess.Popen(
                 ["node", "-e", js], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
