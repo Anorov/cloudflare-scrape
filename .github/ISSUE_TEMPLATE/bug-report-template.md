@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-Before creating an issue, first upgrade cfscrape with `pip install -U cfscrape` and see if you're still experiencing the problem. Please also confirm your Node version (`node --version` or `--nodejs version`) is version 10 or higher.
+Before creating an issue, first upgrade cfscrape with `pip install -U cfscrape` and see if you're still experiencing the problem. Please also confirm your Node version (`node --version` or `nodejs --version`) is version 10 or higher.
 
 Make sure the website you're having issues with is actually using anti-bot protection by Cloudflare and not a competitor like Imperva Incapsula or Sucuri. And if you're using an anonymizing proxy, a VPN, or Tor, Cloudflare often flags those IPs and may block you or present you with a captcha as a result.
 
