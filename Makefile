@@ -28,7 +28,7 @@ lint:
 
 format:
 	# Automatic reformatting
-	pipenv run autopep8 -aaa --ignore $(pep8-rules) --in-place --recursive cfscrape tests setup.py
+	pipenv run autopep8 -aaa --ignore $(pep8-rules) --in-place --recursive cfscrape tests setup.py docs
 
 coverage:
 	pipenv run py.test --cov-config .coveragerc --verbose --cov-report term --cov-report xml --cov=cfscrape tests
