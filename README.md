@@ -115,7 +115,7 @@ scraper = cfscrape.create_scraper()
 url = 'https://captcha.website'
 
 def solve_captcha(resp, *args, **kwargs):
-    # After perform all other steps, submit the form
+    # After performing all other steps, submit the form
     params = { 'g-recaptcha-response': 'token', 's': 'secret' }
     resp = scraper.get('{}/cdn-cgi/l/chk_captcha'.format(url), params=params)
     # Cloudflare should have responded with the requested content
