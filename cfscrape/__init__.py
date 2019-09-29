@@ -15,6 +15,7 @@ from requests.sessions import Session
 from requests.adapters import HTTPAdapter
 from requests.compat import urlparse, urlunparse
 from requests.exceptions import RequestException
+from requests.hooks import dispatch_hook
 
 from urllib3.util.ssl_ import create_urllib3_context, DEFAULT_CIPHERS
 
@@ -119,13 +120,25 @@ class CloudflareScraper(Session):
     def request(self, method, url, *args, **kwargs):
         resp = super(CloudflareScraper, self).request(method, url, *args, **kwargs)
 
-        # Check if Cloudflare captcha challenge is presented
-        if self.is_cloudflare_captcha_challenge(resp):
-            self.handle_captcha_challenge(resp, url)
-
         # Check if Cloudflare anti-bot "I'm Under Attack Mode" is enabled
         if self.is_cloudflare_iuam_challenge(resp):
             resp = self.solve_cf_challenge(resp, **kwargs)
+
+        return resp
+
+    def send(self, request, **kwargs):
+        resp = super(CloudflareScraper, self).send(request, **kwargs)
+
+        while self.is_cloudflare_captcha_challenge(resp):
+            hook_resp = dispatch_hook('captcha', self.hooks, resp, **kwargs)
+
+            # The captcha hooks are expected to return a different response
+            if resp is hook_resp or not hook_resp:
+                # No captcha hooks or the response is invalid
+                self.handle_captcha_challenge(resp)
+
+            # Replace the response and check again
+            resp = hook_resp
 
         return resp
 
@@ -136,10 +149,10 @@ class CloudflareScraper(Session):
             (resp and resp.cookies.get("cf_clearance", None, domain=cookie_domain))
         )
 
-    def handle_captcha_challenge(self, resp, url):
+    def handle_captcha_challenge(self, resp):
         error = (
             "Cloudflare captcha challenge presented for %s (cfscrape cannot solve captchas)"
-            % urlparse(url).netloc
+            % urlparse(resp.url).netloc
         )
         if ssl.OPENSSL_VERSION_NUMBER < 0x10101000:
             error += ". Your OpenSSL version is lower than 1.1.1. Please upgrade your OpenSSL library and recompile Python."

@@ -149,7 +149,9 @@ def challenge_responses(filename, jschl_answer, redirect_to='/'):
                 responses.add(DefaultResponse(url=url, body=requested_page))
 
             responses.add(RedirectResponse(
-                url=submit_uri, callback=on_redirect, location=redirect_to
+                url=submit_uri,
+                callback=on_redirect,
+                location=redirect_to
             ))
 
             return test(self, **cfscrape_kwargs)
@@ -158,11 +160,21 @@ def challenge_responses(filename, jschl_answer, redirect_to='/'):
     return challenge_responses_decorator
 
 
-def recaptcha_responses(filename):
+def recaptcha_responses(filename, redirect_to='/'):
     def recaptcha_responses_decorator(test):
         @responses.activate
         def wrapper(self):
             responses.add(CaptchaResponse(url=url, body=fixtures(filename)))
+
+            def on_redirect(request):
+                # We don't register the last response unless the redirect occurs
+                responses.add(DefaultResponse(url=url, body=requested_page))
+
+            responses.add(RedirectResponse(
+                url='{}/cdn-cgi/l/chk_captcha'.format(url),
+                callback=on_redirect,
+                location=redirect_to
+            ))
 
             return test(self, **cfscrape_kwargs)
         return wrapper
