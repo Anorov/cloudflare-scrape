@@ -96,6 +96,7 @@ class CloudflareScraper(Session):
 
         # Define headers to force using an OrderedDict and preserve header order
         self.headers = headers
+        self.org_method = None
 
         self.mount("https://", CloudflareAdapter())
 
@@ -152,7 +153,11 @@ class CloudflareScraper(Session):
         body = resp.text
         parsed_url = urlparse(resp.url)
         domain = parsed_url.netloc
-        submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed_url.scheme, domain)
+        if self.org_method is None:
+            self.org_method = resp.request.method
+        submit_url = "%s://%s/%s" % (parsed_url.scheme,
+                                     domain,
+                                     re.findall('\<form id=\"challenge-form\" action=\"\/(.*)\?', resp.text)[0])
 
         cloudflare_kwargs = copy.deepcopy(original_kwargs)
 
@@ -160,12 +165,14 @@ class CloudflareScraper(Session):
         headers["Referer"] = resp.url
 
         try:
-            params = cloudflare_kwargs["params"] = OrderedDict(
+            cloudflare_kwargs["data"] = OrderedDict(
                 re.findall(r'name="(s|jschl_vc|pass)"(?: [^<>]*)? value="(.+?)"', body)
             )
+            params = cloudflare_kwargs["params"] = {'__cf_chl_jschl_tk__': re.findall(
+                '\<form id=\"challenge-form\" action=\".*\?__cf_chl_jschl_tk__=(.*?)\"', resp.text)[0]}
 
             for k in ("jschl_vc", "pass"):
-                if k not in params:
+                if k not in cloudflare_kwargs["data"]:
                     raise ValueError("%s is missing from challenge form" % k)
         except Exception as e:
             # Something is wrong with the page.
@@ -174,17 +181,17 @@ class CloudflareScraper(Session):
             # please open a GitHub issue so I can update the code accordingly.
             raise ValueError(
                 "Unable to parse Cloudflare anti-bot IUAM page: %s %s"
-                % (e, BUG_REPORT)
+                % (e.message, BUG_REPORT)
             )
 
         # Solve the Javascript challenge
         answer, delay = self.solve_challenge(body, domain)
-        params["jschl_answer"] = answer
+        cloudflare_kwargs["data"]["jschl_answer"] = answer
 
         # Requests transforms any request into a GET after a redirect,
         # so the redirect has to be handled manually here to allow for
         # performing other types of requests even as the first request.
-        method = resp.request.method
+        method = re.findall(r'\<form id=\"challenge-form\" action=\"\/.*\?.*method=\"(.*?)\"',body)[0]
         cloudflare_kwargs["allow_redirects"] = False
 
         # Cloudflare requires a delay before solving the challenge
@@ -192,21 +199,25 @@ class CloudflareScraper(Session):
 
         # Send the challenge response and handle the redirect manually
         redirect = self.request(method, submit_url, **cloudflare_kwargs)
-        redirect_location = urlparse(redirect.headers["Location"])
+        if "Location" in redirect.headers:
+            redirect_location = urlparse(redirect.headers["Location"])
 
-        if not redirect_location.netloc:
-            redirect_url = urlunparse(
-                (
-                    parsed_url.scheme,
-                    domain,
-                    redirect_location.path,
-                    redirect_location.params,
-                    redirect_location.query,
-                    redirect_location.fragment,
+            if not redirect_location.netloc:
+                redirect_url = urlunparse(
+                    (
+                        parsed_url.scheme,
+                        domain,
+                        redirect_location.path,
+                        redirect_location.params,
+                        redirect_location.query,
+                        redirect_location.fragment,
+                    )
                 )
-            )
-            return self.request(method, redirect_url, **original_kwargs)
-        return self.request(method, redirect.headers["Location"], **original_kwargs)
+                return self.request(method, redirect_url, **original_kwargs)
+            return self.request(method, redirect.headers["Location"], **original_kwargs)
+        else:
+            return self.request(self.org_method, submit_url, **cloudflare_kwargs)
+
 
     def solve_challenge(self, body, domain):
         try:
@@ -226,8 +237,6 @@ class CloudflareScraper(Session):
             # Interpolate the domain, div contents, and JS challenge.
             # The `a.value` to be returned is tacked onto the end.
             challenge = """
-                "use strict";
-
                 var document = {
                     createElement: function () {
                       return { firstChild: { href: "http://%s/" } }
@@ -257,11 +266,6 @@ class CloudflareScraper(Session):
         # The sandboxed code cannot use the Node.js standard library
         js = (
             """\
-            try { Buffer.from("", "base64"); }\
-            catch (e) {\
-                throw new Error("Outdated Node.js detected: " +\
-                    process.version + ", minimum supported version is 4.5");\
-            }\
             var atob = Object.setPrototypeOf(function (str) {\
                 try {\
                     return Buffer.from("" + str, "base64").toString("binary");\
@@ -282,16 +286,10 @@ class CloudflareScraper(Session):
             % challenge
         )
 
-        stderr = ''
         try:
-            node = subprocess.Popen(
-                ["node", "-e", js], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                universal_newlines=True
+            result = subprocess.check_output(
+                ["node", "-e", js], stdin=subprocess.PIPE, stderr=subprocess.PIPE
             )
-            result, stderr = node.communicate()
-            if node.returncode != 0:
-                stderr = "Node.js Exception:\n%s" % (stderr or None)
-                raise subprocess.CalledProcessError(node.returncode, "node -e ...", stderr)
         except OSError as e:
             if e.errno == 2:
                 raise EnvironmentError(
@@ -300,9 +298,7 @@ class CloudflareScraper(Session):
                 )
             raise
         except Exception:
-            logging.error(stderr)
-            if not re.search(r"[^\"]Outdated Node.js detected", stderr):
-                logging.error("Error executing Cloudflare IUAM Javascript. %s" % BUG_REPORT)
+            logging.error("Error executing Cloudflare IUAM Javascript. %s" % BUG_REPORT)
             raise
 
         try:
