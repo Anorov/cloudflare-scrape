@@ -10,6 +10,7 @@ import time
 import os
 from base64 import b64encode
 from collections import OrderedDict
+from lxml import etree
 
 from requests.sessions import Session
 from requests.adapters import HTTPAdapter
@@ -153,11 +154,12 @@ class CloudflareScraper(Session):
         body = resp.text
         parsed_url = urlparse(resp.url)
         domain = parsed_url.netloc
+        tree_ = etree.fromstring(body, etree.HTMLParser())
         if self.org_method is None:
             self.org_method = resp.request.method
-        submit_url = "%s://%s/%s" % (parsed_url.scheme,
+        submit_url = "%s://%s%s" % (parsed_url.scheme,
                                      domain,
-                                     re.findall('\<form id=\"challenge-form\" action=\"\/(.*)\?', resp.text)[0])
+                                    tree_.xpath('//form[@id="challenge-form"]/@action')[0].split('?')[0])
 
         cloudflare_kwargs = copy.deepcopy(original_kwargs)
 
@@ -165,11 +167,15 @@ class CloudflareScraper(Session):
         headers["Referer"] = resp.url
 
         try:
-            cloudflare_kwargs["data"] = OrderedDict(
-                re.findall(r'name="(s|jschl_vc|pass)"(?: [^<>]*)? value="(.+?)"', body)
-            )
-            params = cloudflare_kwargs["params"] = {'__cf_chl_jschl_tk__': re.findall(
-                '\<form id=\"challenge-form\" action=\".*\?__cf_chl_jschl_tk__=(.*?)\"', resp.text)[0]}
+            cloudflare_kwargs["data"] = dict()
+
+            for data_ in tree_.xpath('//form[@id="challenge-form"]/*'):
+                if data_.xpath('./@name')[0] != 'jschl_answer':
+                    cloudflare_kwargs["data"].update({data_.xpath('./@name')[0]: data_.xpath('./@value')[0]})
+
+            params = cloudflare_kwargs["params"] = dict()
+            for params_ in tree_.xpath('//form[@id="challenge-form"]/@action')[0].split('?')[1].split('&'):
+                cloudflare_kwargs["params"].update({params_.split('=')[0]:params_.split('=')[1]})
 
             for k in ("jschl_vc", "pass"):
                 if k not in cloudflare_kwargs["data"]:
@@ -191,7 +197,7 @@ class CloudflareScraper(Session):
         # Requests transforms any request into a GET after a redirect,
         # so the redirect has to be handled manually here to allow for
         # performing other types of requests even as the first request.
-        method = re.findall(r'\<form id=\"challenge-form\" action=\"\/.*\?.*method=\"(.*?)\"',body)[0]
+        method = tree_.xpath('//form[@id="challenge-form"]/@method')[0]
         cloudflare_kwargs["allow_redirects"] = False
 
         # Cloudflare requires a delay before solving the challenge
@@ -221,17 +227,21 @@ class CloudflareScraper(Session):
 
     def solve_challenge(self, body, domain):
         try:
+            tree_ = etree.fromstring(body, etree.HTMLParser())
             challenge, ms = re.search(
                 r"setTimeout\(function\(\){\s*(var "
                 r"s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value\s*=.+?)\r?\n"
                 r"(?:[^{<>]*},\s*(\d{4,}))?",
-                body,
+                tree_.xpath('//script[@type="text/javascript"]/text()')[0],
             ).groups()
 
             # The challenge requires `document.getElementById` to get this content.
             # Future proofing would require escaping newlines and double quotes
-            innerHTML = re.search(r"<div(?: [^<>]*)? id=\"cf-dn.*?\">([^<>]*)", body)
-            innerHTML = innerHTML.group(1) if innerHTML else ""
+            innerHTML = ''
+            for i in tree_.xpath('//script[@type="text/javascript"]/text()')[0].split(';'):
+                if i.strip().split('=')[0].strip() == 'k':      # from what i found out from pld example K var in
+                    k = i.strip().split('=')[1].strip(' \'')    #  javafunction is for innerHTML this code to find it
+                    innerHTML = tree_.xpath('//form[@id="challenge-form"]/../div[@id="' + k + '"]/text()')[0]
 
             # Prefix the challenge with a fake document object.
             # Interpolate the domain, div contents, and JS challenge.
