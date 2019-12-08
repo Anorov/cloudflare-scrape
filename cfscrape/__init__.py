@@ -10,7 +10,6 @@ import time
 import os
 from base64 import b64encode
 from collections import OrderedDict
-from lxml import etree
 
 from requests.sessions import Session
 from requests.adapters import HTTPAdapter
@@ -154,12 +153,13 @@ class CloudflareScraper(Session):
         body = resp.text
         parsed_url = urlparse(resp.url)
         domain = parsed_url.netloc
-        tree_ = etree.fromstring(body, etree.HTMLParser())
+        challenge_form = re.search(r'\<form.*?id=\"challenge-form\".*?\/form\>',body, flags=re.S).group(0) # find challenge form
+        method = re.search(r'method=\"(.*?)\"', challenge_form, flags=re.S).group(1)
         if self.org_method is None:
             self.org_method = resp.request.method
         submit_url = "%s://%s%s" % (parsed_url.scheme,
                                      domain,
-                                    tree_.xpath('//form[@id="challenge-form"]/@action')[0].split('?')[0])
+                                    re.search(r'action=\"(.*?)\"', challenge_form, flags=re.S).group(1).split('?')[0])
 
         cloudflare_kwargs = copy.deepcopy(original_kwargs)
 
@@ -167,19 +167,29 @@ class CloudflareScraper(Session):
         headers["Referer"] = resp.url
 
         try:
+            cloudflare_kwargs["params"] = dict()
             cloudflare_kwargs["data"] = dict()
+            if len(re.search(r'action=\"(.*?)\"', challenge_form, flags=re.S).group(1).split('?')) != 1:
+                for param in re.search(r'action=\"(.*?)\"', challenge_form, flags=re.S).group(1).split('?')[1].split('&'):
+                    cloudflare_kwargs["params"].update({param.split('=')[0]:param.split('=')[1]})
 
-            for data_ in tree_.xpath('//form[@id="challenge-form"]/*'):
-                if data_.xpath('./@name')[0] != 'jschl_answer':
-                    cloudflare_kwargs["data"].update({data_.xpath('./@name')[0]: data_.xpath('./@value')[0]})
+            for input_ in re.findall(r'\<input.*?(?:\/>|\<\/input\>)', challenge_form, flags=re.S):
+                if re.search(r'name=\"(.*?)\"',input_, flags=re.S).group(1) != 'jschl_answer':
+                    if method == 'POST':
+                        cloudflare_kwargs["data"].update({re.search(r'name=\"(.*?)\"',input_, flags=re.S).group(1):
+                                                          re.search(r'value=\"(.*?)\"',input_, flags=re.S).group(1)})
+                    elif method == 'GET':
+                        cloudflare_kwargs["params"].update({re.search(r'name=\"(.*?)\"',input_, flags=re.S).group(1):
+                                                          re.search(r'value=\"(.*?)\"',input_, flags=re.S).group(1)})
+            if method == 'POST':
+                for k in ("jschl_vc", "pass"):
+                    if k not in cloudflare_kwargs["data"]:
+                        raise ValueError("%s is missing from challenge form" % k)
+            elif method == 'GET':
+                for k in ("jschl_vc", "pass"):
+                    if k not in cloudflare_kwargs["params"]:
+                        raise ValueError("%s is missing from challenge form" % k)
 
-            params = cloudflare_kwargs["params"] = dict()
-            for params_ in tree_.xpath('//form[@id="challenge-form"]/@action')[0].split('?')[1].split('&'):
-                cloudflare_kwargs["params"].update({params_.split('=')[0]:params_.split('=')[1]})
-
-            for k in ("jschl_vc", "pass"):
-                if k not in cloudflare_kwargs["data"]:
-                    raise ValueError("%s is missing from challenge form" % k)
         except Exception as e:
             # Something is wrong with the page.
             # This may indicate Cloudflare has changed their anti-bot
@@ -192,12 +202,14 @@ class CloudflareScraper(Session):
 
         # Solve the Javascript challenge
         answer, delay = self.solve_challenge(body, domain)
-        cloudflare_kwargs["data"]["jschl_answer"] = answer
+        if method == 'POST':
+            cloudflare_kwargs["data"]["jschl_answer"] = answer
+        elif method == 'GET':
+            cloudflare_kwargs["params"]["jschl_answer"] = answer
 
         # Requests transforms any request into a GET after a redirect,
         # so the redirect has to be handled manually here to allow for
         # performing other types of requests even as the first request.
-        method = tree_.xpath('//form[@id="challenge-form"]/@method')[0]
         cloudflare_kwargs["allow_redirects"] = False
 
         # Cloudflare requires a delay before solving the challenge
@@ -227,21 +239,20 @@ class CloudflareScraper(Session):
 
     def solve_challenge(self, body, domain):
         try:
-            tree_ = etree.fromstring(body, etree.HTMLParser())
+            javascript = re.search(r'\<script type\=\"text\/javascript\"\>\n(.*?)\<\/script\>',body, flags=re.S).group(1) # find javascript
+
             challenge, ms = re.search(
                 r"setTimeout\(function\(\){\s*(var "
                 r"s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value\s*=.+?)\r?\n"
-                r"(?:[^{<>]*},\s*(\d{4,}))?",
-                tree_.xpath('//script[@type="text/javascript"]/text()')[0],
-            ).groups()
+                r"(?:[^{<>]*},\s*(\d{4,}))?",javascript, flags=re.S).groups()
 
             # The challenge requires `document.getElementById` to get this content.
             # Future proofing would require escaping newlines and double quotes
             innerHTML = ''
-            for i in tree_.xpath('//script[@type="text/javascript"]/text()')[0].split(';'):
+            for i in javascript.split(';'):
                 if i.strip().split('=')[0].strip() == 'k':      # from what i found out from pld example K var in
                     k = i.strip().split('=')[1].strip(' \'')    #  javafunction is for innerHTML this code to find it
-                    innerHTML = tree_.xpath('//form[@id="challenge-form"]/../div[@id="' + k + '"]/text()')[0]
+                    innerHTML = re.search(r'\<div.*?id\=\"'+k+r'\".*?\>(.*?)\<\/div\>',body).group(1) #find innerHTML
 
             # Prefix the challenge with a fake document object.
             # Interpolate the domain, div contents, and JS challenge.
