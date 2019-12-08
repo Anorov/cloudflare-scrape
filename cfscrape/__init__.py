@@ -197,7 +197,7 @@ class CloudflareScraper(Session):
             # please open a GitHub issue so I can update the code accordingly.
             raise ValueError(
                 "Unable to parse Cloudflare anti-bot IUAM page: %s %s"
-                % (e.message, BUG_REPORT)
+                % (e, BUG_REPORT)
             )
 
         # Solve the Javascript challenge
@@ -244,7 +244,9 @@ class CloudflareScraper(Session):
             challenge, ms = re.search(
                 r"setTimeout\(function\(\){\s*(var "
                 r"s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value\s*=.+?)\r?\n"
-                r"(?:[^{<>]*},\s*(\d{4,}))?",javascript, flags=re.S).groups()
+                r"(?:[^{<>]*},\s*(\d{4,}))?",
+                javascript, flags=re.S
+            ).groups()
 
             # The challenge requires `document.getElementById` to get this content.
             # Future proofing would require escaping newlines and double quotes
@@ -306,11 +308,17 @@ class CloudflareScraper(Session):
         """
             % challenge
         )
+        stderr = ''
 
         try:
-            result = subprocess.check_output(
-                ["node", "-e", js], stdin=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+            node = subprocess.Popen(
+                ["node", "-e", js], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines=True
+                )
+            result, stderr = node.communicate()
+            if node.returncode != 0:
+                stderr = "Node.js Exception:\n%s" % (stderr or None)
+                raise subprocess.CalledProcessError(node.returncode, "node -e ...", stderr)
         except OSError as e:
             if e.errno == 2:
                 raise EnvironmentError(
