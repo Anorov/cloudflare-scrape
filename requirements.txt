@@ -1,3 +1,0 @@
-requests >= 2.6.1
-responses
-sure
