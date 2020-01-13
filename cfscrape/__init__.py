@@ -233,9 +233,12 @@ class CloudflareScraper(Session):
                 )
                 return self.request(method, redirect_url, **original_kwargs)
             return self.request(method, redirect.headers["Location"], **original_kwargs)
-        elif 'cf_clearance' in redirect.headers['Set-Cookie']:
-            resp = self.request(self.org_method, submit_url, cookies = redirect.cookies)
-            return resp
+        elif "Set-Cookie" in redirect.headers:
+            if 'cf_clearance' in redirect.headers['Set-Cookie']:
+                resp = self.request(self.org_method, submit_url, cookies = redirect.cookies)
+                return resp
+            else:
+                return self.request(method, redirect_url, **original_kwargs)
         else:
             resp = self.request(self.org_method, submit_url, **cloudflare_kwargs)
             return resp
