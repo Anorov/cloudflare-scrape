@@ -20,7 +20,7 @@ from urllib3.util.ssl_ import create_urllib3_context, DEFAULT_CIPHERS
 
 from .user_agents import USER_AGENTS
 
-__version__ = "2.0.8"
+__version__ = "2.1.0"
 
 DEFAULT_USER_AGENT = random.choice(USER_AGENTS)
 
