@@ -96,6 +96,7 @@ class CloudflareScraper(Session):
 
         # Define headers to force using an OrderedDict and preserve header order
         self.headers = headers
+        self.org_method = None
 
         self.mount("https://", CloudflareAdapter())
 
@@ -152,7 +153,13 @@ class CloudflareScraper(Session):
         body = resp.text
         parsed_url = urlparse(resp.url)
         domain = parsed_url.netloc
-        submit_url = "%s://%s/cdn-cgi/l/chk_jschl" % (parsed_url.scheme, domain)
+        challenge_form = re.search(r'\<form.*?id=\"challenge-form\".*?\/form\>',body, flags=re.S).group(0) # find challenge form
+        method = re.search(r'method=\"(.*?)\"', challenge_form, flags=re.S).group(1)
+        if self.org_method is None:
+            self.org_method = resp.request.method
+        submit_url = "%s://%s%s" % (parsed_url.scheme,
+                                     domain,
+                                    re.search(r'action=\"(.*?)\"', challenge_form, flags=re.S).group(1).split('?')[0])
 
         cloudflare_kwargs = copy.deepcopy(original_kwargs)
 
@@ -160,13 +167,29 @@ class CloudflareScraper(Session):
         headers["Referer"] = resp.url
 
         try:
-            params = cloudflare_kwargs["params"] = OrderedDict(
-                re.findall(r'name="(s|jschl_vc|pass)"(?: [^<>]*)? value="(.+?)"', body)
-            )
+            cloudflare_kwargs["params"] = dict()
+            cloudflare_kwargs["data"] = dict()
+            if len(re.search(r'action=\"(.*?)\"', challenge_form, flags=re.S).group(1).split('?')) != 1:
+                for param in re.search(r'action=\"(.*?)\"', challenge_form, flags=re.S).group(1).split('?')[1].split('&'):
+                    cloudflare_kwargs["params"].update({param.split('=')[0]:param.split('=')[1]})
 
-            for k in ("jschl_vc", "pass"):
-                if k not in params:
-                    raise ValueError("%s is missing from challenge form" % k)
+            for input_ in re.findall(r'\<input.*?(?:\/>|\<\/input\>)', challenge_form, flags=re.S):
+                if re.search(r'name=\"(.*?)\"',input_, flags=re.S).group(1) != 'jschl_answer':
+                    if method == 'POST':
+                        cloudflare_kwargs["data"].update({re.search(r'name=\"(.*?)\"',input_, flags=re.S).group(1):
+                                                          re.search(r'value=\"(.*?)\"',input_, flags=re.S).group(1)})
+                    elif method == 'GET':
+                        cloudflare_kwargs["params"].update({re.search(r'name=\"(.*?)\"',input_, flags=re.S).group(1):
+                                                          re.search(r'value=\"(.*?)\"',input_, flags=re.S).group(1)})
+            if method == 'POST':
+                for k in ("jschl_vc", "pass"):
+                    if k not in cloudflare_kwargs["data"]:
+                        raise ValueError("%s is missing from challenge form" % k)
+            elif method == 'GET':
+                for k in ("jschl_vc", "pass"):
+                    if k not in cloudflare_kwargs["params"]:
+                        raise ValueError("%s is missing from challenge form" % k)
+
         except Exception as e:
             # Something is wrong with the page.
             # This may indicate Cloudflare has changed their anti-bot
@@ -179,12 +202,14 @@ class CloudflareScraper(Session):
 
         # Solve the Javascript challenge
         answer, delay = self.solve_challenge(body, domain)
-        params["jschl_answer"] = answer
+        if method == 'POST':
+            cloudflare_kwargs["data"]["jschl_answer"] = answer
+        elif method == 'GET':
+            cloudflare_kwargs["params"]["jschl_answer"] = answer
 
         # Requests transforms any request into a GET after a redirect,
         # so the redirect has to be handled manually here to allow for
         # performing other types of requests even as the first request.
-        method = resp.request.method
         cloudflare_kwargs["allow_redirects"] = False
 
         # Cloudflare requires a delay before solving the challenge
@@ -192,42 +217,56 @@ class CloudflareScraper(Session):
 
         # Send the challenge response and handle the redirect manually
         redirect = self.request(method, submit_url, **cloudflare_kwargs)
-        redirect_location = urlparse(redirect.headers["Location"])
+        if "Location" in redirect.headers:
+            redirect_location = urlparse(redirect.headers["Location"])
 
-        if not redirect_location.netloc:
-            redirect_url = urlunparse(
-                (
-                    parsed_url.scheme,
-                    domain,
-                    redirect_location.path,
-                    redirect_location.params,
-                    redirect_location.query,
-                    redirect_location.fragment,
+            if not redirect_location.netloc:
+                redirect_url = urlunparse(
+                    (
+                        parsed_url.scheme,
+                        domain,
+                        redirect_location.path,
+                        redirect_location.params,
+                        redirect_location.query,
+                        redirect_location.fragment,
+                    )
                 )
-            )
-            return self.request(method, redirect_url, **original_kwargs)
-        return self.request(method, redirect.headers["Location"], **original_kwargs)
+                return self.request(method, redirect_url, **original_kwargs)
+            return self.request(method, redirect.headers["Location"], **original_kwargs)
+        elif "Set-Cookie" in redirect.headers:
+            if 'cf_clearance' in redirect.headers['Set-Cookie']:
+                resp = self.request(self.org_method, submit_url, cookies = redirect.cookies)
+                return resp
+            else:
+                return self.request(method, redirect_url, **original_kwargs)
+        else:
+            resp = self.request(self.org_method, submit_url, **cloudflare_kwargs)
+            return resp
+
 
     def solve_challenge(self, body, domain):
         try:
+            javascript = re.search(r'\<script type\=\"text\/javascript\"\>\n(.*?)\<\/script\>',body, flags=re.S).group(1) # find javascript
+
             challenge, ms = re.search(
                 r"setTimeout\(function\(\){\s*(var "
                 r"s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value\s*=.+?)\r?\n"
                 r"(?:[^{<>]*},\s*(\d{4,}))?",
-                body,
+                javascript, flags=re.S
             ).groups()
 
             # The challenge requires `document.getElementById` to get this content.
             # Future proofing would require escaping newlines and double quotes
-            innerHTML = re.search(r"<div(?: [^<>]*)? id=\"cf-dn.*?\">([^<>]*)", body)
-            innerHTML = innerHTML.group(1) if innerHTML else ""
+            innerHTML = ''
+            for i in javascript.split(';'):
+                if i.strip().split('=')[0].strip() == 'k':      # from what i found out from pld example K var in
+                    k = i.strip().split('=')[1].strip(' \'')    #  javafunction is for innerHTML this code to find it
+                    innerHTML = re.search(r'\<div.*?id\=\"'+k+r'\".*?\>(.*?)\<\/div\>',body).group(1) #find innerHTML
 
             # Prefix the challenge with a fake document object.
             # Interpolate the domain, div contents, and JS challenge.
             # The `a.value` to be returned is tacked onto the end.
             challenge = """
-                "use strict";
-
                 var document = {
                     createElement: function () {
                       return { firstChild: { href: "http://%s/" } }
@@ -257,11 +296,6 @@ class CloudflareScraper(Session):
         # The sandboxed code cannot use the Node.js standard library
         js = (
             """\
-            try { Buffer.from("", "base64"); }\
-            catch (e) {\
-                throw new Error("Outdated Node.js detected: " +\
-                    process.version + ", minimum supported version is 4.5");\
-            }\
             var atob = Object.setPrototypeOf(function (str) {\
                 try {\
                     return Buffer.from("" + str, "base64").toString("binary");\
@@ -281,13 +315,13 @@ class CloudflareScraper(Session):
         """
             % challenge
         )
-
         stderr = ''
+
         try:
             node = subprocess.Popen(
                 ["node", "-e", js], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 universal_newlines=True
-            )
+                )
             result, stderr = node.communicate()
             if node.returncode != 0:
                 stderr = "Node.js Exception:\n%s" % (stderr or None)
@@ -300,9 +334,7 @@ class CloudflareScraper(Session):
                 )
             raise
         except Exception:
-            logging.error(stderr)
-            if not re.search(r"[^\"]Outdated Node.js detected", stderr):
-                logging.error("Error executing Cloudflare IUAM Javascript. %s" % BUG_REPORT)
+            logging.error("Error executing Cloudflare IUAM Javascript. %s" % BUG_REPORT)
             raise
 
         try:
