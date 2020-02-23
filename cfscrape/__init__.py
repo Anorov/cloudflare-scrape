@@ -238,7 +238,7 @@ class CloudflareScraper(Session):
                 resp = self.request(self.org_method, submit_url, cookies = redirect.cookies)
                 return resp
             else:
-                return self.request(method, redirect_url, **original_kwargs)
+                return self.request(method, submit_url, **original_kwargs)
         else:
             resp = self.request(self.org_method, submit_url, **cloudflare_kwargs)
             return resp
