@@ -65,6 +65,26 @@ class TestCloudflareScraper:
         finally:
             ssl.OPENSSL_VERSION_NUMBER = v
 
+    @recaptcha_responses(filename='cf_recaptcha_15_04_2019.html')
+    def test_captcha_hooks(self, **kwargs):
+        scraper = cfscrape.CloudflareScraper(**kwargs)
+
+        def captcha_hook(resp, **kwargs):
+            return scraper.get('{}/cdn-cgi/l/chk_captcha'.format(url))
+
+        scraper.hooks['captcha'] = captcha_hook
+
+        expect(scraper.get(url).content).to.equal(requested_page)
+
+    @recaptcha_responses(filename='cf_recaptcha_15_04_2019.html')
+    def test_captcha_hooks_empty_response(self, **kwargs):
+        scraper = cfscrape.CloudflareScraper(**kwargs)
+        scraper.hooks['captcha'] = [lambda resp, **kwargs: None]
+
+        message = re.compile(r'captcha challenge presented')
+        scraper.get.when.called_with(url) \
+            .should.have.raised(cfscrape.CloudflareCaptchaError, message)
+
     @responses.activate
     def test_js_challenge_unable_to_identify(self):
         body = fixtures('js_challenge_10_04_2019.html')
@@ -323,5 +343,6 @@ class TestCloudflareScraper:
         scraper.should_not.have.property('data')
 
         session.data = {'bar': 'foo'}
+
         scraper = cfscrape.create_scraper(sess=session)
         scraper.data.should.equal(session.data)

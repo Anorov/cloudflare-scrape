@@ -99,6 +99,32 @@ There is no need to override this delay unless cloudflare-scrape generates an er
 scraper = cfscrape.create_scraper(delay=10)
 ```
 
+### ReCAPTCHA
+
+You can use the `captcha` event hook to implement reCAPTCHA solving. It's similar to Requests' [response event hook](https://requests.kennethreitz.org/en/stable/user/advanced/#event-hooks). However, this particular hook function should be set on the scraper instance.
+
+reCAPTCHA solving steps:
+1. Extract the siteKey and any form values from the response
+2. Submit the siteKey and page URL to a captcha solving service
+3. Retrieve the token from said captcha solving service
+4. Send the form with token to Cloudflare
+
+```python
+scraper = cfscrape.create_scraper()
+# This URL points to a site that is dedicated to Cloudflare's reCAPTCHA.
+url = 'https://captcha.website'
+
+def solve_captcha(resp, *args, **kwargs):
+    # After performing all other steps, submit the form
+    params = { 'g-recaptcha-response': 'token', 's': 'secret' }
+    resp = scraper.get('{}/cdn-cgi/l/chk_captcha'.format(url), params=params)
+    # Cloudflare should have responded with the requested content
+    return resp
+
+scraper.hooks['captcha'] = solve_captcha
+print scraper.get(url).content # => "<!DOCTTYPE html>..."
+```
+
 ## Integration
 
 It's easy to integrate cloudflare-scrape with other applications and tools. Cloudflare uses two cookies as tokens: one to verify you made it past their challenge page and one to track your session. To bypass the challenge page, simply include both of these cookies (with the appropriate user-agent) in all HTTP requests you make.
