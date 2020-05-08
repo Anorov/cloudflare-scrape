@@ -249,9 +249,7 @@ class CloudflareScraper(Session):
             all_scripts = re.findall(r'\<script type\=\"text\/javascript\"\>\n(.*?)\<\/script\>',body, flags=re.S)
             javascript = next(filter(lambda w: "jschl-answer" in w,all_scripts)) #find the script tag which would have obfuscated js
             challenge, ms = re.search(
-                r"setTimeout\(function\(\){\s*(var "
-                r"s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value\s*=.+?)\r?\n"
-                r"(?:[^{<>]*},\s*(\d{4,}))?",
+                r"setTimeout\(function\(\){\s*(var s,t,o,p, b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value\s*=.+?)\r?\n(?:[^{<>]*},\s*(\d{4,}))?",
                 javascript, flags=re.S
             ).groups()
 
