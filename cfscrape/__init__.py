@@ -173,7 +173,7 @@ class CloudflareScraper(Session):
                 for param in re.search(r'action=\"(.*?)\"', challenge_form, flags=re.S).group(1).split('?')[1].split('&'):
                     cloudflare_kwargs["params"].update({param.split('=')[0]:param.split('=')[1]})
 
-            for input_ in re.findall(r'\<input.*?(?:\/>|\<\/input\>)', challenge_form, flags=re.S):
+            for input_ in re.findall(r'[^-] \<input.*?(?:\/>|\<\/input\>)', challenge_form, flags=re.S):
                 if re.search(r'name=\"(.*?)\"',input_, flags=re.S).group(1) != 'jschl_answer':
                     if method == 'POST':
                         cloudflare_kwargs["data"].update({re.search(r'name=\"(.*?)\"',input_, flags=re.S).group(1):
@@ -246,22 +246,23 @@ class CloudflareScraper(Session):
 
     def solve_challenge(self, body, domain):
         try:
-            all_scripts = re.findall(r'\<script type\=\"text\/javascript\"\>\n(.*?)\<\/script\>',body, flags=re.S)
-            javascript = next(filter(lambda w: "jschl-answer" in w,all_scripts)) #find the script tag which would have obfuscated js
+            javascript = re.search(r'\<script type\=\"text\/javascript\"\>\n(.*?)\<\/script\>',body, flags=re.S).group(1) # find javascript
+
             challenge, ms = re.search(
                 r"setTimeout\(function\(\){\s*(var "
-                r"s,t,o,p,b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value\s*=.+?)\r?\n"
-                r"(?:[^{<>]*},\s*(\d{4,}))?",
+                r"s,t,o,p, b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value\s*=.+?)\r?\n"
+                r"(?:[^{<>]*},\s*(\d{4,}))",
                 javascript, flags=re.S
             ).groups()
 
             # The challenge requires `document.getElementById` to get this content.
             # Future proofing would require escaping newlines and double quotes
-            innerHTML = ''
+            innerHTML = {}
             for i in javascript.split(';'):
                 if i.strip().split('=')[0].strip() == 'k':      # from what i found out from pld example K var in
                     k = i.strip().split('=')[1].strip(' \'')    #  javafunction is for innerHTML this code to find it
-                    innerHTML = re.search(r'\<div.*?id\=\"'+k+r'\".*?\>(.*?)\<\/div\>',body).group(1) #find innerHTML
+                    k = re.finditer(r'\<div.*?id\=\"('+k+r'\d+)\".*?\>(.*?)\<\/div\>',body) #find innerHTML
+                    innerHTML = {x.group(1): x.group(2) for x in k}
 
             # Prefix the challenge with a fake document object.
             # Interpolate the domain, div contents, and JS challenge.
@@ -271,8 +272,9 @@ class CloudflareScraper(Session):
                     createElement: function () {
                       return { firstChild: { href: "http://%s/" } }
                     },
-                    getElementById: function () {
-                      return {"innerHTML": "%s"};
+                    getElementById: function (id) {
+                      var data = %s;
+                      return {"innerHTML": data[id]};
                     }
                   };
 
@@ -282,6 +284,7 @@ class CloudflareScraper(Session):
                 innerHTML,
                 challenge,
             )
+            challenge = re.sub(r'setInterval\(.+?\d\),', '', challenge)
             # Encode the challenge for security while preserving quotes and spacing.
             challenge = b64encode(challenge.encode("utf-8")).decode("ascii")
             # Use the provided delay, parsed delay, or default to 8 secs
@@ -336,7 +339,7 @@ class CloudflareScraper(Session):
         except Exception:
             logging.error("Error executing Cloudflare IUAM Javascript. %s" % BUG_REPORT)
             raise
-
+        
         try:
             float(result)
         except Exception:
