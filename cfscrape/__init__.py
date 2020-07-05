@@ -250,7 +250,7 @@ class CloudflareScraper(Session):
 
             challenge, ms = re.search(
                 r"setTimeout\(function\(\){\s*(var "
-                r"s,t,o,p, b,r,e,a,k,i,n,g,f.+?\r?\n[\s\S]+?a\.value\s*=.+?)\r?\n"
+                r"s,t,o,p, b,r,e,a,k,i,n,g,cpo,f.+?\r?\n[\s\S]+?a\.value\s*=.+?)\r?\n"
                 r"(?:[^{<>]*},\s*(\d{4,}))",
                 javascript, flags=re.S
             ).groups()
