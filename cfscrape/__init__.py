@@ -102,6 +102,11 @@ class CloudflareScraper(Session):
 
     @staticmethod
     def is_cloudflare_iuam_challenge(resp):
+        """
+        :param resp: The HTTP response object
+        :returns: True if the response is a
+        Cloudflare challenge, False otherwise
+        """
         return (
             resp.status_code in (503, 429)
             and resp.headers.get("Server", "").startswith("cloudflare")
@@ -111,6 +116,14 @@ class CloudflareScraper(Session):
 
     @staticmethod
     def is_cloudflare_captcha_challenge(resp):
+        """
+        Checks if the response is a Cloudflare captcha challenge.
+
+        :param resp: The
+        HTTP response to check.
+        :returns bool: True if the response is a Cloudflare
+        captcha challenge, False otherwise.
+        """
         return (
             resp.status_code == 403
             and resp.headers.get("Server", "").startswith("cloudflare")
@@ -138,6 +151,13 @@ class CloudflareScraper(Session):
         )
 
     def handle_captcha_challenge(self, resp, url):
+        """
+        Cloudflare captcha challenge presented for `urlparse(url).netloc` (cfscrape
+        cannot solve captchas)
+
+        If you are using OpenSSL 1.1.0 or lower, it is
+        recommended to upgrade your OpenSSL library and recompile Python.
+        """
         error = (
             "Cloudflare captcha challenge presented for %s (cfscrape cannot solve captchas)"
             % urlparse(url).netloc
@@ -245,6 +265,14 @@ class CloudflareScraper(Session):
 
 
     def solve_challenge(self, body, domain):
+        """
+        Solve the Cloudflare challenge by using JavaScript to compute the
+        challenge.
+
+        :param body: The HTTP response body from Cloudflare.
+        :param
+        domain: The domain we are solving for (used in JS).
+        """
         try:
             all_scripts = re.findall(r'\<script type\=\"text\/javascript\"\>\n(.*?)\<\/script\>',body, flags=re.S)
             javascript = next(filter(lambda w: "jschl-answer" in w,all_scripts)) #find the script tag which would have obfuscated js
