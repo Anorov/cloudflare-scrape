@@ -16,7 +16,18 @@ from requests.adapters import HTTPAdapter
 from requests.compat import urlparse, urlunparse
 from requests.exceptions import RequestException
 
-from urllib3.util.ssl_ import create_urllib3_context, DEFAULT_CIPHERS
+from urllib3.util.ssl_ import create_urllib3_context
+
+try:
+    from urllib3.util.ssl_ import DEFAULT_CIPHERS
+except ImportError:
+    # Defer to system configuration starting with
+    # urllib3 2.0. This will choose the ciphers provided by
+    # Openssl 1.1.1+ or secure system defaults.
+    DEFAULT_CIPHERS = (
+        'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+HIGH:'
+        'DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES:!aNULL:'
+        '!eNULL:!MD5')
 
 from .user_agents import USER_AGENTS
 
