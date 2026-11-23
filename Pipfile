@@ -5,6 +5,10 @@ name = "pypi"
 
 [packages]
 requests = "*"
+# cfscrape imports DEFAULT_CIPHERS from urllib3.util.ssl_, which urllib3 2.x
+# removed -> importing cfscrape fails. Stay on the 1.26.x line (requests 2.33
+# accepts urllib3 <3, so this resolves cleanly).
+urllib3 = ">=1.26,<2"
 
 [dev-packages]
 pytest = "*"
